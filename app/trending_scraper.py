@@ -1,3 +1,4 @@
+import os
 import traceback
 from typing import List
 from trending.coingecko_client import CoinGeckoClient
@@ -10,17 +11,21 @@ def getUtcString():
     utc_now = datetime.now(timezone.utc)
     return utc_now.strftime("%Y-%m-%d %H:%M:%S")
 
+def getCoinGeckoClient():
+    return CoinGeckoClient(api_key=os.getenv("COINGECKO_KEY"))
+
 def processCoins(coins: List[str], client: CoinGeckoClient):
     for coin in coins:
         try:
             io = CoinDataIo(coin)
-            if not io.fileExists:
+            if not io.fileExists():
                 io.write_to_file(client.get_coin_data(coin))
         except Exception as e:
             print(f"failed to write coin {coin}", e)
+            raise e
 
-def main(out_file: str, cgApiKey: str):
-    client = CoinGeckoClient(api_key=cgApiKey)
+def main(out_file: str):
+    client = getCoinGeckoClient()
     tokens = client.get_trending_tokens()
     unique_tokens = sorted({entry[2] for entry in tokens})
 
@@ -51,16 +56,9 @@ parser.add_argument(
     help="Path to the output file (no default)"
 )
 
-parser.add_argument(
-    "-cgkey", "--coingecko_key",
-    type=str,
-    required=True,
-    help="coingecko api key"
-)
-
 args = parser.parse_args()
 try:
-    main(args.output, args.coingecko_key)
+    main(args.output)
 except Exception as e:
     print(f"Error: {e}")
     print(traceback.format_exc())

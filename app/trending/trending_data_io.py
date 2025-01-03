@@ -45,5 +45,5 @@ class TrendingDataIo:
             else:
                 return []
         except Exception as e:
-            print(f"failed to get last trending {e}")
+            print(f"\nfailed to get last trending {e}")
             return []

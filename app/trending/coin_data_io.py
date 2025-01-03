@@ -17,7 +17,12 @@ class CoinDataIo:
         return f"{COIN_DATA_DIR}/{self.coin}"
         
     def write_to_file(self, raw_coin_data):
-        with open(self.file_path(), "a") as file:
+        path = self.file_path()
+        directory = os.path.dirname(path)
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+
+        with open(path, "w") as file:
             file.write(f"{raw_coin_data}\n")
 
     def fileExists(self) -> bool:

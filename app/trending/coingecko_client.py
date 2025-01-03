@@ -27,14 +27,17 @@ class CoinGeckoClient:
     def _get_url(self, suffix_path):
         return f"{self.base_url}{suffix_path}"
     
-    def _do_http(self, url, params) -> dict:
+    def _do_http(self, url, params={}, raw=False) -> dict:
         try:
             response = requests.get(url, params=params, headers=self.headers)
             if (response.status_code == 429):
                 raise RateLimitException("")
 
             response.raise_for_status()  # Raise an error for bad status codes
-            return response.json()
+            if raw:
+                return response.text
+            else:
+                return response.json()
         except requests.exceptions.RequestException as e:
             print(f"Error fetching data: {e}")
             # traceback.print_exc()
@@ -49,7 +52,7 @@ class CoinGeckoClient:
             'from': int(startDate.timestamp()),
             'to': int(endDate.timestamp())
             }
-        data = self._do_http(url, params)
+        data = self._do_http(url, params={})
         if not data:
             return None
         prices = data["prices"]
@@ -75,5 +78,5 @@ class CoinGeckoClient:
     
     def get_coin_data(self, coin: str):
          url = self._get_url(f"/coins/{coin.lower()}")
-         data = self._do_http(url)
+         data = self._do_http(url, raw=True)
          return data
