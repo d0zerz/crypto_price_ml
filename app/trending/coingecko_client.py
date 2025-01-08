@@ -1,8 +1,9 @@
+import json
 import traceback
 from typing import Optional
 import requests
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timezone
 
 from prices.price_data import PriceData
 
@@ -77,6 +78,14 @@ class CoinGeckoClient:
         return trending_tokens
     
     def get_coin_data(self, coin: str):
-         url = self._get_url(f"/coins/{coin.lower()}")
-         data = self._do_http(url, raw=True)
-         return data
+        url = self._get_url(f"/coins/{coin.lower()}")
+        data = self._do_http(url)
+          # Get the current UTC timestamp
+        current_utc_timestamp = datetime.now(timezone.utc).isoformat()
+        
+        # Wrap the data in a higher-level structure
+        wrapped_data = {
+        "timestamp": current_utc_timestamp,
+        "data": data
+        }
+        return json.dumps(wrapped_data, indent=4)

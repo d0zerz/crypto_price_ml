@@ -46,7 +46,7 @@ def main(out_file: str):
         print(f"{formatted_time}: nothing new")
 
 parser = argparse.ArgumentParser(
-    description="A script to demonstrate clean argument parsing."
+    description=""
 )
 
 parser.add_argument(
