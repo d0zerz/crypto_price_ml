@@ -10,14 +10,12 @@ COIN_DATA_DIR = ".coin_data"
 
 class CoinDataIo:
     
-    def __init__(self, coin: str):
+    def __init__(self, base_path: str, coin: str):
         self.coin = coin
-
-    def file_path(self):
-        return f"{COIN_DATA_DIR}/{self.coin}"
-        
+        self.file_path = f"{base_path}/{COIN_DATA_DIR}/{self.coin}"
+      
     def write_to_file(self, raw_coin_data):
-        path = self.file_path()
+        path = self.file_path
         directory = os.path.dirname(path)
         if not os.path.exists(directory):
             os.makedirs(directory)
@@ -26,4 +24,4 @@ class CoinDataIo:
             file.write(f"{raw_coin_data}\n")
 
     def fileExists(self) -> bool:
-        os.path.exists(self.file_path())
+        os.path.exists(self.file_path)

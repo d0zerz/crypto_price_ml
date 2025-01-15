@@ -17,7 +17,7 @@
             "program": "${workspaceFolder}/app/trending_scraper.py",
             "envFile": "${workspaceFolder}/.env",
             "args": [
-                "--output", "trending.log",
+                "--output", "${workspaceFolder}/",
               ]
         },
         {

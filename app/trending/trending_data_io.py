@@ -10,8 +10,8 @@ class TrendingData:
     new_trendings: List[str]
 
 class TrendingDataIo:
-    def __init__(self, file_path: str):
-        self.file_path = file_path
+    def __init__(self, trending_directory: str):
+        self.file_path = f"{trending_directory}/trending.log"
         
         
     def write_to_file(self, token_str):
