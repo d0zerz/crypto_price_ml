@@ -1,13 +1,32 @@
 {
     "configurations": [
         {
+            "name": "Analysis",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/app/trending_analysis.py",
+            "envFile": "${workspaceFolder}/.env",
+            "args": [
+                "--trending", "trending_test.log",
+              ]
+        },
+        {
+            "name": "Scraper",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/app/trending_scraper.py",
+            "envFile": "${workspaceFolder}/.env",
+            "args": [
+                "--output", "trending.log",
+              ]
+        },
+        {
             "name": "Python Debugger: Python File",
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "envFile": "${workspaceFolder}/.env",
             "args": [
-                "--output", "trending.log",
               ]
         }
     ]

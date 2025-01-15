@@ -27,7 +27,7 @@ def processCoins(coins: List[str], client: CoinGeckoClient):
 def main(out_file: str):
     client = getCoinGeckoClient()
     tokens = client.get_trending_tokens()
-    unique_tokens = sorted({entry[2] for entry in tokens})
+    unique_tokens = sorted({entry[0] for entry in tokens})
 
     dataSrc = TrendingDataIo(out_file)
     last_trending = dataSrc.get_last_trending()

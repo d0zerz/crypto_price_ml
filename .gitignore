@@ -6,4 +6,4 @@ __pycache__/
 .env
 
 .coin_data/
-trending.log
+trending*.log*

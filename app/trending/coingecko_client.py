@@ -44,16 +44,15 @@ class CoinGeckoClient:
             # traceback.print_exc()
             return []
 
-    def get_historical_chart(self, coin: str, startDate: datetime, endDate: datetime) -> Optional[PriceData]:
+    def get_historical_chart(self, coin: str, days_ago: int) -> Optional[PriceData]:
 
-        url = self._get_url(f"/coins/{coin.lower()}/market_chart/range")
+        url = self._get_url(f"/coins/{coin.lower()}/market_chart")
         vsCurrency = "usd" if coin == "btc" else "btc"
         params = {
             'vs_currency': vsCurrency,
-            'from': int(startDate.timestamp()),
-            'to': int(endDate.timestamp())
+            'days': days_ago
             }
-        data = self._do_http(url, params={})
+        data = self._do_http(url, params=params)
         if not data:
             return None
         prices = data["prices"]
@@ -62,6 +61,12 @@ class CoinGeckoClient:
         pricesDf.set_index('timestamp', inplace=True)
         return PriceData(coin, pricesDf)
 
+    def get_coin_map(self):
+        url = self._get_url("/coins/list")
+        data = self._do_http(url, params={})
+        symbol_to_id = {coin["symbol"]: coin["id"] for coin in data}
+        return symbol_to_id
+
     def get_trending_tokens(self):
         url = self._get_url("/search/trending")
         data = self._do_http(url, params={})
@@ -69,7 +74,7 @@ class CoinGeckoClient:
         # Parse and display trending tokens
         trending_tokens = []
         for item in data.get("coins", []):
-            id = item["item"]["coin_id"]
+            id = item["item"]["id"]
             name = item["item"]["name"]
             symbol = item["item"]["symbol"]
             market_cap = item["item"]["data"]["market_cap"]

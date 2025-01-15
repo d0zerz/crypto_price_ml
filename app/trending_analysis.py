@@ -1,4 +1,6 @@
+import os
 import traceback
+from typing import List
 from trending.coingecko_client import CoinGeckoClient, RateLimitException
 from trending.trending_data_io import TrendingData, TrendingDataIo
 from datetime import datetime, timedelta, timezone
@@ -21,56 +23,69 @@ class TrendingAnalyzer:
 
     def __init__(self, cgApiKey: str):
         self.client = CoinGeckoClient(api_key=cgApiKey)
+        self.coinMap = self.client.get_coin_map()
 
-    def main(self):
-        io = TrendingDataIo("trending.log")
+    def main(self, trending_log: str):
+        io = TrendingDataIo(trending_log)
         trendings = io.getTrendings()
+        #self.printNew(trendings)
         coinsTotaled, diffTotals = self.getTotals(trendings)
 
         for index, diff in enumerate(diffTotals):
             pctDiff = round(diff / coinsTotaled, 3)
             print(f"{self.INTERVALS[index]} - {pctDiff}")
 
-    def getTotals(self, trendings):
+    def printNew(self, trendings: List[TrendingData]):
+        coinsProcessed = []
+        for trending in trendings:
+            for coin in trending.new_trendings:
+                if coin not in coinsProcessed:
+                    print(f"{trending.timestamp} new coin {coin}")
+                    coinsProcessed.append(coin)
+
+    def getTotals(self, trendings: List[TrendingData]):
         coinsProcessed = []
         coinsTotaled = 0
         diffTotals = [0 for interval in self.INTERVALS]
         for trending in trendings:
             for coin in trending.new_trendings:
                 if coin not in coinsProcessed:
-                    self.processCoin(coinsProcessed, coinsTotaled, diffTotals, trending, coin)
+                    print(f"{trending.timestamp}: processing {coin}")
+                    diffs = self.processCoin(trending, coin)
+                    coinsProcessed.append(coin)
+                    print(f"processed {coin} with {diffs}")
+                    if diffs:
+                        for index, diff in enumerate(diffs):
+                            diffTotals[index] = diffTotals[index] + diff
+                        coinsTotaled += 1
         return coinsTotaled, diffTotals
 
-    def processCoin(self, coinsProcessed, coinsTotaled, diffTotals, trending, coin):
-        diffs = None
-        while diffs is None:
+    def processCoin(self, trending: TrendingData, coin: str) -> List[int]:
+        while True:
             attempts = 0
             try:
                 attempts += 1
-                diffs = self.find_price_changes(coin, trending)
-                break # if we didn't find a price for a non-rate-limitey reason
+                coin_id = self.coinMap[coin.lower()]
+                return self.find_price_diffs(coin_id, trending)
+            except KeyError as e:
+                print(f"no coin in map found for {coin}")
+                return None
             except RateLimitException as e:
                 if attempts > 10:
                     raise Exception(f"giving up on {coin} after 10 attempts")
                 print(f"Rate Limited:  retrying on {coin} in 60s")
                 time.sleep(60)
-        
-        coinsProcessed.append(coin)
-        if diffs:
-            for index, diff in enumerate(diffs):
-                diffTotals[index] = diffTotals[index] + diff
-            coinsTotaled += 1
 
-
-    def find_price_changes(self, coin: str, trending: TrendingData):
+    #Find price diff from
+    def find_price_diffs(self, coin: str, trending: TrendingData) -> List[int]:
         currTs = trending.timestamp
-        startTime = trending.timestamp - timedelta(hours=2)
-        endTime = trending.timestamp + timedelta(days=15)
-        prices = self.client.get_historical_chart(coin, startTime, endTime)
+        prices = self.client.get_historical_chart(coin, 90)
         if not prices:
             print(f"Couldn't get prices for {coin}")
-            return 
+            return None
         startPrice = prices.getClosestPrice(currTs) 
+        if startPrice == 0:
+            return None
 
         timeDiffs = [currTs + interval for interval in self.INTERVALS]
         pctDiffs = []
@@ -79,28 +94,30 @@ class TrendingAnalyzer:
             delta = price - startPrice
             pctIncrease = round((delta / startPrice) * 100)
             pctDiffs.append(pctIncrease)
-            print(f"{coin}: from {currTs} to {curTime}, price went from {startPrice} to {price} for a {pctIncrease}% increase")
+            #print(f"{coin}: from {currTs} to {curTime}, price went from {startPrice} to {price} for a {pctIncrease}% increase")
         
         return pctDiffs
 
 
 
-def main():
-    TrendingAnalyzer("CG-YvWpXFroowKjpZhupbfaQkZq").main()
+def main(trending_file: str):
+    cg_key = os.getenv("COINGECKO_KEY")
+    TrendingAnalyzer(cg_key).main(trending_file)
 
 parser = argparse.ArgumentParser(
     description="Analyze trending.log"
 )
 parser.add_argument(
-    "-o", "--output",
+    "-t", "--trending",
     type=str,
     required=False,
-    help="Path to the output file (no default)"
+    default="trending.log",
+    help="Path to the trending file (default trending.log)"
 )
 args = parser.parse_args()
 
 try:
-    main()
+    main(args.trending)
 except Exception as e:
     print(f"Failed to main", e)
     traceback.print_exc()
