@@ -1,6 +1,6 @@
 import ast
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List
 
 @dataclass

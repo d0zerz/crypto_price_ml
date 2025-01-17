@@ -8,32 +8,30 @@ import time
 import argparse
 import pandas as pd
 
+
 class TrendingAnalyzer:
 
-    INTERVALS = [timedelta(hours=1),
-                        timedelta(hours=3),
-                        timedelta(hours=7),
-                        timedelta(hours=12),
-                        timedelta(hours=24),
-                        timedelta(days=2),
-                        timedelta(days=4),
-                        timedelta(days=7),
-                        timedelta(days=14)
-                        ]
+    INTERVALS = [
+        timedelta(hours=1),
+        timedelta(hours=3),
+        timedelta(hours=7),
+        timedelta(hours=12),
+        timedelta(hours=24),
+    ]
 
     def __init__(self, cgApiKey: str):
         self.client = CoinGeckoClient(api_key=cgApiKey)
-        self.coinMap = self.client.get_coin_map()
 
-    def main(self, trending_log: str):
-        io = TrendingDataIo(trending_log)
+    def main(self, trending_dir: str):
+        io = TrendingDataIo(trending_dir)
         trendings = io.getTrendings()
-        #self.printNew(trendings)
         coinsTotaled, diffTotals = self.getTotals(trendings)
 
+        print(f"total coins: {coinsTotaled}")
         for index, diff in enumerate(diffTotals):
-            pctDiff = round(diff / coinsTotaled, 3)
-            print(f"{self.INTERVALS[index]} - {pctDiff}")
+            pctDiff = round(diff / coinsTotaled, 2)
+            minsAhead = self.INTERVALS[index].total_seconds() / 60
+            print(f"{minsAhead} minutes later: {pctDiff}% increase ")
 
     def printNew(self, trendings: List[TrendingData]):
         coinsProcessed = []
@@ -46,8 +44,13 @@ class TrendingAnalyzer:
     def getTotals(self, trendings: List[TrendingData]):
         coinsProcessed = []
         coinsTotaled = 0
-        diffTotals = [0 for interval in self.INTERVALS]
+        diffTotals = [0 for i in self.INTERVALS]
         for trending in trendings:
+            earliest_process_date = (
+                datetime.now(timezone.utc) - self.INTERVALS[-1]
+            ).replace(tzinfo=None)
+            if trending.timestamp > earliest_process_date:
+                continue
             for coin in trending.new_trendings:
                 if coin not in coinsProcessed:
                     print(f"{trending.timestamp}: processing {coin}")
@@ -65,8 +68,7 @@ class TrendingAnalyzer:
             attempts = 0
             try:
                 attempts += 1
-                coin_id = self.coinMap[coin.lower()]
-                return self.find_price_diffs(coin_id, trending)
+                return self.find_price_diffs(coin, trending)
             except KeyError as e:
                 print(f"no coin in map found for {coin}")
                 return None
@@ -76,14 +78,14 @@ class TrendingAnalyzer:
                 print(f"Rate Limited:  retrying on {coin} in 60s")
                 time.sleep(60)
 
-    #Find price diff from
+    # Find price diff from
     def find_price_diffs(self, coin: str, trending: TrendingData) -> List[int]:
         currTs = trending.timestamp
         prices = self.client.get_historical_chart(coin, 90)
         if not prices:
             print(f"Couldn't get prices for {coin}")
             return None
-        startPrice = prices.getClosestPrice(currTs) 
+        startPrice = prices.getClosestPrice(currTs)
         if startPrice == 0:
             return None
 
@@ -94,25 +96,24 @@ class TrendingAnalyzer:
             delta = price - startPrice
             pctIncrease = round((delta / startPrice) * 100)
             pctDiffs.append(pctIncrease)
-            #print(f"{coin}: from {currTs} to {curTime}, price went from {startPrice} to {price} for a {pctIncrease}% increase")
-        
+            # print(f"{coin}: from {currTs} to {curTime}, price went from {startPrice} to {price} for a {pctIncrease}% increase")
+
         return pctDiffs
 
 
-
-def main(trending_file: str):
+def main(trending_dir: str):
     cg_key = os.getenv("COINGECKO_KEY")
-    TrendingAnalyzer(cg_key).main(trending_file)
+    TrendingAnalyzer(cg_key).main(trending_dir)
 
-parser = argparse.ArgumentParser(
-    description="Analyze trending.log"
-)
+
+parser = argparse.ArgumentParser(description="Analyze trending.log")
 parser.add_argument(
-    "-t", "--trending",
+    "-t",
+    "--trending",
     type=str,
     required=False,
     default="trending.log",
-    help="Path to the trending file (default trending.log)"
+    help="Path to the trending directory",
 )
 args = parser.parse_args()
 

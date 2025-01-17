@@ -7,7 +7,7 @@
             "program": "${workspaceFolder}/app/trending_analysis.py",
             "envFile": "${workspaceFolder}/.env",
             "args": [
-                "--trending", "trending_test.log",
+                "--trending", "data/scraper",
               ]
         },
         {

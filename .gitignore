@@ -6,4 +6,5 @@ __pycache__/
 .env
 
 .coin_data/
+data/scraper/.coin_data
 trending*.log*
