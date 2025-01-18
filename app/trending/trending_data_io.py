@@ -13,7 +13,6 @@ class TrendingDataIo:
     def __init__(self, trending_directory: str):
         self.file_path = f"{trending_directory}/trending.log"
         
-        
     def write_to_file(self, token_str):
         with open(self.file_path, "a") as file:
             file.write(f"{token_str}\n")

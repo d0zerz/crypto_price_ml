@@ -103,8 +103,8 @@ class CoinDataIo:
         with open(path, "w") as file:
             file.write(f"{raw_coin_data}\n")
 
-    def fileExists(self) -> bool:
-        os.path.exists(self.file_path)
+    def fileExists(self, coin) -> bool:
+        os.path.exists(self.get_file_path(coin))
 
     def getCoinDataFromFile(self, coin: str) -> CoinData:
         file_path = self.get_file_path(coin)

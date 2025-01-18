@@ -11,39 +11,40 @@ def getUtcString():
     utc_now = datetime.now(timezone.utc)
     return utc_now.strftime("%Y-%m-%d %H:%M:%S")
 
-def getCoinGeckoClient():
-    return CoinGeckoClient(api_key=os.getenv("COINGECKO_KEY"))
+class TrendingScraper:
 
-def processCoins(coins: List[str], client: CoinGeckoClient, output_directory: str):
-    for coin in coins:
-        try:
-            io = CoinDataIo(output_directory, coin)
-            if not io.fileExists():
-                io.write_to_file(client.get_coin_data(coin))
-        except Exception as e:
-            print(f"failed to write coin {coin}", e)
-            raise e
+    def __init__(self, output_directory: str):
+        self.output_directory = output_directory
+        self.coingecko = CoinGeckoClient(api_key=os.getenv("COINGECKO_KEY"))
+        self.coin_data_io = CoinDataIo(output_directory)
+        self.trending_data_io = TrendingDataIo(self.output_directory)
+        
+    def main(self):
+        tokens = self.coingecko.get_trending_tokens()
+        formatted_time = getUtcString()
+        unique_tokens = sorted({entry[0] for entry in tokens})
+        last_trending = self.trending_data_io.get_last_trending()
+        new_entries = []
+        if last_trending:
+            new_entries =  [item for item in unique_tokens if item not in last_trending]
+            self.processCoins(new_entries)
 
-def main(out_dir: str):
-    client = getCoinGeckoClient()
-    tokens = client.get_trending_tokens()
-    unique_tokens = sorted({entry[0] for entry in tokens})
+        if new_entries or not last_trending:
+            printstr = str((formatted_time, unique_tokens, new_entries))
+            self.trending_data_io.write_to_file(printstr)
+            print(f"{formatted_time}: wrote {printstr} to {self.output_directory}")
+        else:
+            print(f"{formatted_time}: nothing new")
+    
+    def processCoins(self, coins: List[str]):
+        for coin in coins:
+            try:
+                if not self.coin_data_io.fileExists(coin):
+                    self.coin_data_io.write_to_file(coin, self.coingecko.get_coin_data(coin))
+            except Exception as e:
+                print(f"failed to write coin {coin}", e)
+                raise e
 
-    dataSrc = TrendingDataIo(out_dir)
-    last_trending = dataSrc.get_last_trending()
-    formatted_time = getUtcString()
-
-    new_entries = []
-    if last_trending:
-        new_entries =  [item for item in unique_tokens if item not in last_trending]
-        processCoins(new_entries, client, out_dir)
-
-    if new_entries or not last_trending:
-        printstr = str((formatted_time, unique_tokens, new_entries))
-        dataSrc.write_to_file(printstr)
-        print(f"{formatted_time}: wrote {printstr} to {out_dir}")
-    else:
-        print(f"{formatted_time}: nothing new")
 
 parser = argparse.ArgumentParser(
     description=""
@@ -58,7 +59,7 @@ parser.add_argument(
 
 args = parser.parse_args()
 try:
-    main(args.output)
+    TrendingScraper(args.output).main()
 except Exception as e:
     print(f"Error: {e}")
     print(traceback.format_exc())
