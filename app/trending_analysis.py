@@ -3,6 +3,7 @@ import traceback
 from typing import List
 from trending.coingecko_client import CoinGeckoClient, RateLimitException
 from trending.trending_data_io import TrendingData, TrendingDataIo
+from trending.coin_data_io import CoinData, CoinDataIo
 from datetime import datetime, timedelta, timezone
 import time
 import argparse
@@ -19,11 +20,13 @@ class TrendingAnalyzer:
         timedelta(hours=24),
     ]
 
-    def __init__(self, cgApiKey: str):
+    def __init__(self, cgApiKey: str, trending_dir: str):
         self.client = CoinGeckoClient(api_key=cgApiKey)
+        self.trending_dir = trending_dir
+        self.coin_data_io = CoinDataIo(trending_dir)
 
-    def main(self, trending_dir: str):
-        io = TrendingDataIo(trending_dir)
+    def main(self):
+        io = TrendingDataIo(self.trending_dir)
         trendings = io.getTrendings()
         coinsTotaled, diffTotals = self.getTotals(trendings)
 
@@ -64,6 +67,8 @@ class TrendingAnalyzer:
         return coinsTotaled, diffTotals
 
     def processCoin(self, trending: TrendingData, coin: str) -> List[int]:
+        data = self.coin_data_io.getCoinDataFromFile(coin)
+        print(data)
         while True:
             attempts = 0
             try:
@@ -103,7 +108,7 @@ class TrendingAnalyzer:
 
 def main(trending_dir: str):
     cg_key = os.getenv("COINGECKO_KEY")
-    TrendingAnalyzer(cg_key).main(trending_dir)
+    TrendingAnalyzer(cg_key, trending_dir).main()
 
 
 parser = argparse.ArgumentParser(description="Analyze trending.log")
