@@ -40,7 +40,7 @@ class CoinData:
         market_data = data.get("market_data", {})
         return cls(
             data_snapshot_time=(
-                isoparse(coingecko_coin["timestamp"])
+                isoparse(coingecko_coin["timestamp"]).replace(tzinfo=None)
                 if "timestamp" in coingecko_coin
                 else None
             ),
@@ -51,7 +51,7 @@ class CoinData:
             current_price_usd=market_data.get("current_price", {}).get("usd"),
             ath_btc=market_data.get("ath", {}).get("btc"),
             ath_date=(
-                isoparse(market_data["ath_date"]["btc"])
+                isoparse(market_data["ath_date"]["btc"]).replace(tzinfo=None)
                 if "ath_date" in market_data and "btc" in market_data["ath_date"]
                 else None
             ),

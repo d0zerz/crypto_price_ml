@@ -1,3 +1,4 @@
+from dataclasses import fields
 import os
 import traceback
 from typing import List
@@ -14,8 +15,7 @@ class TrendingAnalyzer:
 
     INTERVALS = [
         timedelta(hours=1),
-        timedelta(hours=3),
-        timedelta(hours=7),
+        timedelta(hours=6),
         timedelta(hours=12),
         timedelta(hours=24),
     ]
@@ -25,16 +25,23 @@ class TrendingAnalyzer:
         self.trending_dir = trending_dir
         self.coin_data_io = CoinDataIo(trending_dir)
 
+        coin_field_names = [field.name for field in fields(CoinData)]
+        interval_names = [f"{round(i.total_seconds() / 3600)}hr_after" for i in self.INTERVALS]
+        self.dataframe_cols = coin_field_names + interval_names
+
     def main(self):
         io = TrendingDataIo(self.trending_dir)
         trendings = io.getTrendings()
-        coinsTotaled, diffTotals = self.getTotals(trendings)
+        coinDataFrame = self.getTotals(trendings)
 
-        print(f"total coins: {coinsTotaled}")
-        for index, diff in enumerate(diffTotals):
-            pctDiff = round(diff / coinsTotaled, 2)
-            minsAhead = self.INTERVALS[index].total_seconds() / 60
-            print(f"{minsAhead} minutes later: {pctDiff}% increase ")
+        print(f"total coins: {len(coinDataFrame)}")
+        print(coinDataFrame.columns)
+        print(coinDataFrame)
+        coinDataFrame.to_excel("coin_data_dump.xlsx", index=False)
+        print(f"1hr price diff: {coinDataFrame['1hr_after'].mean()}")
+        print(f"6hr price diff: {coinDataFrame['6hr_after'].mean()}")
+        print(f"12hr price diff: {coinDataFrame['12hr_after'].mean()}")
+        print(f"24hr price diff: {coinDataFrame['24hr_after'].mean()}")
 
     def printNew(self, trendings: List[TrendingData]):
         coinsProcessed = []
@@ -44,36 +51,44 @@ class TrendingAnalyzer:
                     print(f"{trending.timestamp} new coin {coin}")
                     coinsProcessed.append(coin)
 
-    def getTotals(self, trendings: List[TrendingData]):
+    def getTotals(self, trendings: List[TrendingData]) -> pd.DataFrame:
         coinsProcessed = []
-        coinsTotaled = 0
-        diffTotals = [0 for i in self.INTERVALS]
+        allCoinData = []
         for trending in trendings:
-            earliest_process_date = (
-                datetime.now(timezone.utc) - self.INTERVALS[-1]
-            ).replace(tzinfo=None)
-            if trending.timestamp > earliest_process_date:
+            if self.shouldSkipTrending(trending):
                 continue
             for coin in trending.new_trendings:
                 if coin not in coinsProcessed:
                     print(f"{trending.timestamp}: processing {coin}")
-                    diffs = self.processCoin(trending, coin)
+                    coinData = self.processCoin(trending, coin)
                     coinsProcessed.append(coin)
-                    print(f"processed {coin} with {diffs}")
-                    if diffs:
-                        for index, diff in enumerate(diffs):
-                            diffTotals[index] = diffTotals[index] + diff
-                        coinsTotaled += 1
-        return coinsTotaled, diffTotals
+                    if coinData:
+                        print(coinData)
+                        if len(coinData) == len(self.dataframe_cols):
+                            allCoinData.append(coinData)
+                        else:
+                            print("COL MISMATCH WETF")
+        return self.createNewDataFrame(allCoinData)
 
-    def processCoin(self, trending: TrendingData, coin: str) -> List[int]:
+    def shouldSkipTrending(self, trending: TrendingData):
+        earliest_process_date = (
+            datetime.now(timezone.utc) - self.INTERVALS[-1]
+        ).replace(tzinfo=None)
+        return trending.timestamp > earliest_process_date
+
+    def createNewDataFrame(self, list_of_lists: List[List]):
+        return pd.DataFrame(list_of_lists, columns=(self.dataframe_cols))
+
+    def processCoin(self, trending: TrendingData, coin: str) -> List:
         data = self.coin_data_io.getCoinDataFromFile(coin)
+        coin_data = list(data.__dict__.values())
         print(data)
         while True:
             attempts = 0
             try:
                 attempts += 1
-                return self.find_price_diffs(coin, trending)
+                pct_diffs = self.find_price_diffs(coin, trending)
+                return  coin_data + pct_diffs
             except KeyError as e:
                 print(f"no coin in map found for {coin}")
                 return None
@@ -83,7 +98,7 @@ class TrendingAnalyzer:
                 print(f"Rate Limited:  retrying on {coin} in 60s")
                 time.sleep(60)
 
-    # Find price diff from
+    # Find price diff represented by a percentage from the start date
     def find_price_diffs(self, coin: str, trending: TrendingData) -> List[int]:
         currTs = trending.timestamp
         prices = self.client.get_historical_chart(coin, 90)
