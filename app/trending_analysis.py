@@ -2,6 +2,7 @@ from dataclasses import fields
 import os
 import traceback
 from typing import List
+from prices.price_data import PriceDataNotFoundException
 from trending.coingecko_client import CoinGeckoClient, RateLimitException
 from trending.trending_data_io import TrendingData, TrendingDataIo
 from trending.coin_data_io import CoinData, CoinDataIo
@@ -10,6 +11,7 @@ import time
 import argparse
 import pandas as pd
 
+SKIP_FIRST_COINS = 10
 
 class TrendingAnalyzer:
 
@@ -52,22 +54,30 @@ class TrendingAnalyzer:
                     coinsProcessed.append(coin)
 
     def getTotals(self, trendings: List[TrendingData]) -> pd.DataFrame:
-        coinsProcessed = []
+        coinsProcessed = trendings[0].trendings
         allCoinData = []
+        skipped = 0
         for trending in trendings:
             if self.shouldSkipTrending(trending):
                 continue
             for coin in trending.new_trendings:
-                if coin not in coinsProcessed:
-                    print(f"{trending.timestamp}: processing {coin}")
-                    coinData = self.processCoin(trending, coin)
+                if coin in coinsProcessed:
+                    continue
+                if skipped < SKIP_FIRST_COINS:
+                    skipped += 1
                     coinsProcessed.append(coin)
-                    if coinData:
-                        print(coinData)
-                        if len(coinData) == len(self.dataframe_cols):
-                            allCoinData.append(coinData)
-                        else:
-                            print("COL MISMATCH WETF")
+                    continue
+                print(f"{trending.timestamp}: processing {coin}")
+                coinData = self.processCoin(trending, coin)
+                coinsProcessed.append(coin)
+                if coinData:
+                    print(coinData)
+                    if len(coinData) == len(self.dataframe_cols):
+                        allCoinData.append(coinData)
+                    else:
+                        print("COL MISMATCH WETF")
+                else:
+                    print(f"No data for {coin}")
         return self.createNewDataFrame(allCoinData)
 
     def shouldSkipTrending(self, trending: TrendingData):
@@ -82,15 +92,17 @@ class TrendingAnalyzer:
     def processCoin(self, trending: TrendingData, coin: str) -> List:
         data = self.coin_data_io.getCoinDataFromFile(coin)
         coin_data = list(data.__dict__.values())
-        print(data)
         while True:
             attempts = 0
             try:
                 attempts += 1
                 pct_diffs = self.find_price_diffs(coin, trending)
-                return  coin_data + pct_diffs
+                return coin_data + pct_diffs
             except KeyError as e:
                 print(f"no coin in map found for {coin}")
+                return None
+            except PriceDataNotFoundException as e:
+                print(f"no close enough price data found for {coin}")
                 return None
             except RateLimitException as e:
                 if attempts > 10:
@@ -114,7 +126,7 @@ class TrendingAnalyzer:
         for curTime in timeDiffs:
             price = prices.getClosestPrice(curTime)
             delta = price - startPrice
-            pctIncrease = round((delta / startPrice) * 100)
+            pctIncrease = round((delta / startPrice) * 100, 3)
             pctDiffs.append(pctIncrease)
             # print(f"{coin}: from {currTs} to {curTime}, price went from {startPrice} to {price} for a {pctIncrease}% increase")
 
