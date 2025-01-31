@@ -1,6 +1,9 @@
+from datetime import datetime, timezone
+import json
+import os
 from typing import List
 import requests
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 @dataclass
 class TokenProfile:
@@ -10,7 +13,9 @@ class TokenProfile:
 
 @dataclass
 class TokenPairAggregated:
+    timestamp: str
     token_name: str
+    token_symbol: str
     price_usd: float
     price_native: float
     buys_m5: int
@@ -25,6 +30,18 @@ class TokenPairAggregated:
     price_change_h24: float
     liquidity_usd: float
     market_cap: float
+
+    def write_to_file(self, file_path: str):
+        if not os.path.exists(file_path):
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump(asdict(self), f, indent=4)
+
+    @classmethod
+    def load_from_file(cls, file_path: str):
+        with open(file_path, "r") as file:
+            data = json.load(file)
+        return cls(**data)
+        
 
 class DexScreenerClient:
     BASE_URL = "https://api.dexscreener.com/token-profiles/latest/v1"
@@ -54,7 +71,9 @@ class DexScreenerClient:
         pairs = response.json()
         
         aggregated_data = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "token_name": pairs[0]["baseToken"]["name"],
+            "token_symbol": pairs[0]["baseToken"]["symbol"],
             "price_usd": 0,
             "price_native": 0,
             "buys_m5": 0, "buys_h1": 0, "buys_h6": 0, "buys_h24": 0,

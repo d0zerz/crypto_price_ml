@@ -100,7 +100,7 @@ class CoinDataIo:
         if not os.path.exists(directory):
             os.makedirs(directory)
 
-        with open(path, "w") as file:
+        with open(path, "w", encoding="utf-8") as file:
             file.write(f"{raw_coin_data}\n")
 
     def fileExists(self, coin) -> bool:
