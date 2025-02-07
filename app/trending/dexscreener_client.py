@@ -1,47 +1,15 @@
 from datetime import datetime, timezone
-import json
-import os
 from typing import List
 import requests
 from dataclasses import asdict, dataclass
+
+from trending.dex_token import DexToken
 
 @dataclass
 class TokenProfile:
     url: str
     chain_id: str
     token_address: str
-
-@dataclass
-class TokenPairAggregated:
-    timestamp: str
-    token_name: str
-    token_symbol: str
-    price_usd: float
-    price_native: float
-    buys_m5: int
-    buys_h1: int
-    buys_h6: int
-    buys_h24: int
-    sells_m5: int
-    sells_h1: int
-    sells_h6: int
-    sells_h24: int
-    volume_h24: float
-    price_change_h24: float
-    liquidity_usd: float
-    market_cap: float
-
-    def write_to_file(self, file_path: str):
-        if not os.path.exists(file_path):
-            with open(file_path, "w", encoding="utf-8") as f:
-                json.dump(asdict(self), f, indent=4)
-
-    @classmethod
-    def load_from_file(cls, file_path: str):
-        with open(file_path, "r") as file:
-            data = json.load(file)
-        return cls(**data)
-        
 
 class DexScreenerClient:
     BASE_URL = "https://api.dexscreener.com/token-profiles/latest/v1"
@@ -64,14 +32,16 @@ class DexScreenerClient:
                 )
         return token_profiles
     
-    def get_token_pair(self, chain_id: str, token_address: str) -> TokenPairAggregated:
+    def get_token_pair(self, chain_id: str, token_address: str) -> DexToken:
         url = self.PAIR_URL.format(chain_id, token_address)
         response = requests.get(url)
         response.raise_for_status()
         pairs = response.json()
         
         aggregated_data = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),            
+            "chain_id": chain_id,
+            "token_address": token_address,
             "token_name": pairs[0]["baseToken"]["name"],
             "token_symbol": pairs[0]["baseToken"]["symbol"],
             "price_usd": 0,
@@ -96,7 +66,7 @@ class DexScreenerClient:
             aggregated_data["liquidity_usd"] += pair.get("liquidity", {}).get("usd", 0)
             aggregated_data["market_cap"] += pair.get("marketCap", 0)
         
-        return TokenPairAggregated(**aggregated_data)
+        return DexToken(**aggregated_data)
 
 # Example usage
 if __name__ == "__main__":

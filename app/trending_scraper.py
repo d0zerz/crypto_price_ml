@@ -4,14 +4,26 @@ from typing import List
 from trending.coingecko_client import CoinGeckoClient
 from trending.dexscreener_client import DexScreenerClient
 from trending.coin_data_io import CoinDataIo
-from trending.coin_data_io import COIN_DATA_DIR
+from trending.dex_token import DexDataIo, FUTURE_TIMES
 from trending.trending_data_io import TrendingDataIo
 from datetime import datetime, timezone
+import time
 import argparse
 
 def getUtcString():
     utc_now = datetime.now(timezone.utc)
     return utc_now.strftime("%Y-%m-%d %H:%M:%S")
+
+import traceback
+
+def safe_call(func, *args, **kwargs):
+    try:
+        print(f"Calling: {func.__name__} with args: {args}, kwargs: {kwargs}")
+        return func(*args, **kwargs)
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        traceback.print_exc()
+        return None
 
 class TrendingScraper:
 
@@ -19,6 +31,8 @@ class TrendingScraper:
         self.output_directory = output_directory
         self.coingecko = CoinGeckoClient(api_key=os.getenv("COINGECKO_KEY"))
         self.coin_data_io = CoinDataIo(output_directory)
+        self.dex_coin_data_io = DexDataIo(output_directory)
+        self.dex_client = DexScreenerClient()
 
     def processCoinGeckoTrendings(self):
         tokens = self.coingecko.get_trending_tokens()
@@ -34,15 +48,29 @@ class TrendingScraper:
                 raise e
     
     def processDexTrendings(self):
-        client = DexScreenerClient()
         trending_data_io = TrendingDataIo(self.output_directory, "dex_trending.log")
         unique_tokens = []
-        for tokenProfile in client.get_latest_solana_token_profiles():
-            token_pair = client.get_token_pair(tokenProfile.chain_id, tokenProfile.token_address)
-            token_pair.write_to_file(f"{self.output_directory}/{COIN_DATA_DIR}/dex_{token_pair.token_symbol}.json")
+        for tokenProfile in self.dex_client.get_latest_solana_token_profiles():
+            token_pair = self.dex_client.get_token_pair(tokenProfile.chain_id, tokenProfile.token_address)
+            self.dex_coin_data_io.write_to_file(token_pair)
             unique_tokens.append(token_pair.token_symbol)
 
         self.processTrending(unique_tokens, trending_data_io)
+
+    def populateDexFutures(self):
+        all_coins = self.dex_coin_data_io.load_all_dex_coins()
+        for time_entry in FUTURE_TIMES:
+            label = time_entry["label"]
+            interval = time_entry["interval"]
+            self.populateDexFuture(all_coins, label, interval)
+
+    def populateDexFuture(self, all_coins, label, interval):
+        cur_future = {a.token_address:a for a in self.dex_coin_data_io.load_all_dex_coins(label)}
+
+        for coin in all_coins:
+            if coin.token_address not in cur_future and coin.isDue(interval=interval):
+                token_pair = self.dex_client.get_token_pair(coin.chain_id, coin.token_address)
+                self.dex_coin_data_io.write_to_file(token_pair, label)
 
     def processTrending(self, unique_tokens: List, trending_data_io: TrendingDataIo):
         last_trending = trending_data_io.get_last_trending()
@@ -60,8 +88,14 @@ class TrendingScraper:
         return new_entries
 
     def main(self):
-        self.processCoinGeckoTrendings()
-        self.processDexTrendings()
+        start_time = time.time()
+        print(f"{getUtcString()} Starting Scraping")
+        safe_call(self.processCoinGeckoTrendings)
+        safe_call(self.populateDexFutures)
+        safe_call(self.processDexTrendings)
+        end_time = time.time()
+        total_time = end_time - start_time
+        print(f"{getUtcString()} Done Scraping, took {total_time:.4f}s")
 
 parser = argparse.ArgumentParser(
     description=""

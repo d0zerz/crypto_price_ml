@@ -4,12 +4,11 @@ from datetime import datetime
 from dateutil.parser import isoparse
 import json
 import os
-from typing import List, Optional
+from typing import List, Optional, Any, Dict
 
 from trending.coingecko_client import CoinGeckoClient
 
 COIN_DATA_DIR = ".coin_data"
-
 
 @dataclass
 class CoinData:
@@ -84,7 +83,6 @@ class CoinData:
                 "price_change_percentage_1y_in_currency", {}
             ).get("btc"),
         )
-
 
 class CoinDataIo:
 
