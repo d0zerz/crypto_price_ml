@@ -7,28 +7,28 @@ from typing import Any, Dict, List
 
 FUTURE_TIMES = [
     {
+        "label": "T10m",
+        "interval": timedelta(minutes=10)
+    },
+    {
         "label": "T30m",
         "interval": timedelta(minutes=30)
     },
     {
-        "label": "T2hr",
-        "interval": timedelta(hours=2)
+        "label": "T1hr",
+        "interval": timedelta(hours=1)
     },
     {
-        "label": "T6hr",
-        "interval": timedelta(hours=6)
+        "label": "T3hr",
+        "interval": timedelta(hours=3)
     },
     {
-        "label": "T24hr",
+        "label": "T8hr",
+        "interval": timedelta(hours=8)
+    },
+    {
+        "label": "T24h",
         "interval": timedelta(hours=24)
-    },
-    {
-        "label": "T2d",
-        "interval": timedelta(days=2)
-    },
-    {
-        "label": "T6d",
-        "interval": timedelta(days=6)
     },    
     ]
 

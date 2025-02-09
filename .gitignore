@@ -7,5 +7,5 @@ __pycache__/
 
 .*coin_data/
 coin_data*.xlsx
-data/scraper/.coin_data
+data/*
 *trending*.log*

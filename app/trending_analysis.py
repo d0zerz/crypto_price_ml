@@ -12,6 +12,7 @@ import argparse
 import pandas as pd
 
 SKIP_FIRST_COINS = 10
+COIN_DATA_FILE = "coin_data_dump.xlsx"
 
 class TrendingAnalyzer:
 
@@ -20,6 +21,7 @@ class TrendingAnalyzer:
         timedelta(hours=6),
         timedelta(hours=12),
         timedelta(hours=24),
+        timedelta(hours=48),
     ]
 
     def __init__(self, cgApiKey: str, trending_dir: str):
@@ -33,17 +35,21 @@ class TrendingAnalyzer:
 
     def main(self):
         io = TrendingDataIo(self.trending_dir)
-        trendings = io.getTrendings()
-        coinDataFrame = self.getTotals(trendings)
+        coinDataFrame = None
+        if (os.path.exists(COIN_DATA_FILE)):
+            coinDataFrame = pd.read_excel(io=COIN_DATA_FILE)
+        else:
+            trendings = io.getTrendings()
+            coinDataFrame = self.getTotals(trendings)
+            coinDataFrame.to_excel(COIN_DATA_FILE, index=False)
 
         print(f"total coins: {len(coinDataFrame)}")
         print(coinDataFrame.columns)
-        print(coinDataFrame)
-        coinDataFrame.to_excel("coin_data_dump.xlsx", index=False)
         print(f"1hr price diff: {coinDataFrame['1hr_after'].mean()}")
         print(f"6hr price diff: {coinDataFrame['6hr_after'].mean()}")
         print(f"12hr price diff: {coinDataFrame['12hr_after'].mean()}")
         print(f"24hr price diff: {coinDataFrame['24hr_after'].mean()}")
+        print(f"48hr price diff: {coinDataFrame['48hr_after'].mean()}")
 
     def printNew(self, trendings: List[TrendingData]):
         coinsProcessed = []
