@@ -95,18 +95,27 @@ class DexDataIo:
     def get_file_path(self, coin: str) -> str:
         return f"{self.base_path}/{DEX_COIN_DATA_DIR}/dex_{coin}"
     
-    def write_to_file(self, token: DexToken, suffix: str = None):
+    def token_exists(self, token_address):
+        return os.path.exists(self._get_token_file_path(token_address))
+
+    def _get_token_file_path(self, token_address, suffix: str=""):
         suf = ".json"
         if suffix:
             suf = f"_{suffix}.json"
-        file_path = self.get_file_path(token.token_address) + suf
+        file_path = self.get_file_path(token_address) + suf
+        return file_path
+
+    def write_to_file(self, token: DexToken, suffix: str = None):
+        file_path=self._get_token_file_path(token.token_address, suffix)
+        if os.path.exists(self._get_token_file_path(file_path)):
+            return
+
         directory = os.path.dirname(file_path)
         if not os.path.exists(directory):
             os.makedirs(directory)
 
-        if not os.path.exists(file_path):
-            with open(file_path, "w", encoding="utf-8") as f:
-                json.dump(asdict(token), f, indent=4)
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(asdict(token), f, indent=4)
     
     def load_all_dex_coins(self, time_mod: str = "") -> List[DexToken]:
         return self._load_dex_coin_data("dex_", f"{time_mod}.json")

@@ -51,9 +51,10 @@ class TrendingScraper:
         trending_data_io = TrendingDataIo(self.output_directory, "dex_trending.log")
         unique_tokens = []
         for tokenProfile in self.dex_client.get_latest_solana_token_profiles():
-            token_pair = self.dex_client.get_token_pair(tokenProfile.chain_id, tokenProfile.token_address)
-            self.dex_coin_data_io.write_to_file(token_pair)
-            unique_tokens.append(token_pair.token_symbol)
+            if not self.dex_coin_data_io.token_exists(tokenProfile.token_address):
+                token_pair = self.dex_client.get_token_pair(tokenProfile.chain_id, tokenProfile.token_address)
+                self.dex_coin_data_io.write_to_file(token_pair)
+                unique_tokens.append(token_pair.token_symbol)
 
         self.processTrending(unique_tokens, trending_data_io)
 
@@ -69,8 +70,11 @@ class TrendingScraper:
 
         for coin in all_coins:
             if coin.token_address not in cur_future and coin.isDue(interval=interval):
-                token_pair = self.dex_client.get_token_pair(coin.chain_id, coin.token_address)
-                self.dex_coin_data_io.write_to_file(token_pair, label)
+                try:
+                    token_pair = self.dex_client.get_token_pair(coin.chain_id, coin.token_address)
+                    self.dex_coin_data_io.write_to_file(token_pair, label)
+                except Exception as e:
+                    print(f"Failed to get {token_pair}")
 
     def processTrending(self, unique_tokens: List, trending_data_io: TrendingDataIo):
         last_trending = trending_data_io.get_last_trending()
