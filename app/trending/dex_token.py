@@ -32,6 +32,27 @@ FUTURE_TIMES = [
     },    
     ]
 
+OLD_FUTURE_TIMES = [
+    {
+        "label": "T30m",
+        "interval": timedelta(minutes=30)
+    },
+    {
+        "label": "T2hr",
+        "interval": timedelta(hours=2)
+    },
+    {
+        "label": "T6hr",
+        "interval": timedelta(hours=6)
+    },
+    {
+        "label": "T24h",
+        "interval": timedelta(hours=24)
+    },  
+    ]
+
+FUTURE_TIME_LABELS = [el["label"] for el in FUTURE_TIMES]
+
 @dataclass
 class DexToken:
     timestamp: datetime
@@ -91,6 +112,7 @@ class DexDataIo:
 
     def __init__(self, base_path: str):
         self.base_path = base_path
+        self.dir_cache = None
 
     def get_file_path(self, coin: str) -> str:
         return f"{self.base_path}/{DEX_COIN_DATA_DIR}/dex_{coin}"
@@ -117,21 +139,43 @@ class DexDataIo:
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(asdict(token), f, indent=4)
     
-    def load_all_dex_coins(self, time_mod: str = "") -> List[DexToken]:
-        return self._load_dex_coin_data("dex_", f"{time_mod}.json")
+    def load_all_dex_coins(self, time_mod: str = None) -> List[DexToken]:
+        return self._load_dex_coin_data("dex_", time_mod)
+    
+    def load_all_futures(self, coin):
+        return self._load_dex_coin_data(f"dex_{coin}", '.json')
+    
+    def load_future(self, token_address, future_name) -> DexToken:
+        futures = self._load_dex_coin_data(f"dex_{token_address}", f'_{future_name}.json')
+        assert len(futures) < 2
+        if not futures or len(futures) == 0:
+            return None
+        return futures[0]
 
-    def _load_dex_coin_data(self, starts_with: str, ends_with: str) -> List[DexToken]:
-        """Load all CoinData objects from files matching 'dex_{COIN_NAME}.json'."""
+    def _is_a_time_file(self, filename: str) -> bool:
+        for interval in OLD_FUTURE_TIMES:
+            if filename.endswith(f'{interval["label"]}.json'):
+                return True
+        return False
+
+    def _get_dir_list(self, directory):
+        if not self.dir_cache:
+            self.dir_cache = os.listdir(directory)
+        return self.dir_cache
+    
+
+    def _load_dex_coin_data(self, starts_with: str, time_mod: str = None) -> List[DexToken]:
         coin_data_list = []
         directory = os.path.join(self.base_path, DEX_COIN_DATA_DIR)
 
         if not os.path.exists(directory):
             return []
 
-        for filename in os.listdir(directory):
-            if filename.startswith(starts_with) and filename.endswith(ends_with):
+        ends_with = f"{time_mod}" if time_mod else ".json"
+        for filename in self._get_dir_list(directory):
+            should_exclude = time_mod is None and self._is_a_time_file(filename)
+            if not should_exclude and (filename.startswith(starts_with) and filename.endswith(ends_with)):
                 file_path = os.path.join(directory, filename)
-
                 try:
                     with open(file_path, "r", encoding="utf-8") as f:
                         data = json.load(f)
