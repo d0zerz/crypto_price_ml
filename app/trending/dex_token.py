@@ -3,6 +3,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 import json
 import os
+import shutil
 from typing import Any, Dict, List
 
 FUTURE_TIMES = [
@@ -107,6 +108,7 @@ class DexToken:
         )
 
 DEX_COIN_DATA_DIR = ".dex_coin_data"
+ARCHIVE_DIR = ".archive"
 
 class DexDataIo:
 
@@ -127,6 +129,26 @@ class DexDataIo:
         file_path = self.get_file_path(token_address) + suf
         return file_path
 
+    def archive_token_files(self, token):
+        directory = f"{self.base_path}/{DEX_COIN_DATA_DIR}"
+        if not os.path.isdir(directory):
+            print(f"Error: Directory '{directory}' does not exist.")
+            return
+        
+        # Create the archive directory if it doesn't exist
+        archive_dir = os.path.join(directory, ARCHIVE_DIR)
+        os.makedirs(archive_dir, exist_ok=True)
+        
+        # Find and move all matching _T*.json files
+        for file in os.listdir(directory):
+            if file.startswith(f"dex_{token}") and file.endswith(".json"):
+                src_path = os.path.join(directory, file)
+                dest_path = os.path.join(archive_dir, file)
+                try:
+                    shutil.move(src_path, dest_path)
+                except Exception as e:
+                    print(f"Failed to archive {file}: {e}")
+
     def write_to_file(self, token: DexToken, suffix: str = None):
         file_path=self._get_token_file_path(token.token_address, suffix)
         if os.path.exists(self._get_token_file_path(file_path)):
@@ -139,11 +161,15 @@ class DexDataIo:
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(asdict(token), f, indent=4)
     
-    def load_all_dex_coins(self, time_mod: str = None) -> List[DexToken]:
-        return self._load_dex_coin_data("dex_", time_mod)
+    # no futures
+    def load_all_dex_coins(self, future_label = None) -> List[DexToken]:
+        if future_label:
+            return self._load_dex_coin_data("dex_", f'_{future_label}.json')
+        else:
+            return self._load_dex_coin_data("dex_", None)
     
-    def load_all_futures(self, coin):
-        return self._load_dex_coin_data(f"dex_{coin}", '.json')
+    def load_all_futures(self, token_address):
+        return self._load_dex_coin_data(f"dex_{token_address}", '.json')
     
     def load_future(self, token_address, future_name) -> DexToken:
         futures = self._load_dex_coin_data(f"dex_{token_address}", f'_{future_name}.json')

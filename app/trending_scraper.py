@@ -1,10 +1,12 @@
 import os
 import traceback
 from typing import List
+
+from requests import HTTPError
 from trending.coingecko_client import CoinGeckoClient
 from trending.dexscreener_client import DexScreenerClient
 from trending.coin_data_io import CoinDataIo
-from trending.dex_token import DexDataIo, FUTURE_TIMES
+from trending.dex_token import DexDataIo, FUTURE_TIMES, DexToken
 from trending.trending_data_io import TrendingDataIo
 from datetime import datetime, timezone
 import time
@@ -64,17 +66,26 @@ class TrendingScraper:
             label = time_entry["label"]
             interval = time_entry["interval"]
             self.populateDexFuture(all_coins, label, interval)
-
-    def populateDexFuture(self, all_coins, label, interval):
+        
+    def populateDexFuture(self, all_coins: List[DexToken], label, interval):
         cur_future = {a.token_address:a for a in self.dex_coin_data_io.load_all_dex_coins(label)}
 
         for coin in all_coins:
             if coin.token_address not in cur_future and coin.isDue(interval=interval):
                 try:
                     token_pair = self.dex_client.get_token_pair(coin.chain_id, coin.token_address)
-                    self.dex_coin_data_io.write_to_file(token_pair, label)
+                    if token_pair:
+                        self.dex_coin_data_io.write_to_file(token_pair, label)
+                    else:
+                        self.dex_coin_data_io.archive_token_files(coin.token_address)
                 except Exception as e:
-                    print(f"Failed to get {token_pair}")
+                    print(f"Failed to get {coin.token_address}")
+                    traceback.print_exc()
+
+    def archiveDexTokens(self):
+        last_future_label = FUTURE_TIMES[-1]["label"]
+        for coin in self.dex_coin_data_io.load_all_dex_coins(last_future_label):
+            self.dex_coin_data_io.archive_token_files(coin.token_address)
 
     def processTrending(self, unique_tokens: List, trending_data_io: TrendingDataIo):
         last_trending = trending_data_io.get_last_trending()
@@ -97,6 +108,8 @@ class TrendingScraper:
         safe_call(self.processCoinGeckoTrendings)
         safe_call(self.populateDexFutures)
         safe_call(self.processDexTrendings)
+        safe_call(self.archiveDexTokens)
+        
         end_time = time.time()
         total_time = end_time - start_time
         print(f"{getUtcString()} Done Scraping, took {total_time:.4f}s")

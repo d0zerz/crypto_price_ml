@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
-from typing import List
+import time
+from typing import List, Optional
 import requests
 from dataclasses import asdict, dataclass
 
@@ -32,11 +33,32 @@ class DexScreenerClient:
                 )
         return token_profiles
     
-    def get_token_pair(self, chain_id: str, token_address: str) -> DexToken:
+    def fetch_with_retry(self, url, max_retries=5):
+        retries = 0
+        while retries < max_retries:
+            try:
+                response = requests.get(url)
+                response.raise_for_status()  # Raise HTTPError for bad responses
+                return response.json()  # Return data if successful
+            
+            except requests.exceptions.HTTPError as e:
+                if e.response is not None and e.response.status_code == 429:  # Too Many Requests
+                    wait_time = 60
+                    print(f"HTTP 429 received. Retrying in {wait_time} seconds...")
+                    time.sleep(wait_time)
+                    retries += 1
+                else:
+                    raise  # Re-raise other HTTP errors
+
+        print("Max retries reached. Request failed.")
+        return None
+
+    def get_token_pair(self, chain_id: str, token_address: str) -> Optional[DexToken]:
         url = self.PAIR_URL.format(chain_id, token_address)
-        response = requests.get(url)
-        response.raise_for_status()
-        pairs = response.json()
+        pairs = self.fetch_with_retry(url)
+
+        if len(pairs) < 1:
+            return None
         
         aggregated_data = {
             "timestamp": datetime.now(timezone.utc).isoformat(),            
