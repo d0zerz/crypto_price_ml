@@ -1,13 +1,16 @@
+import asyncio
 import os
 import traceback
 from typing import List
 
 from requests import HTTPError
+from trading.jupiter_client import JupiterClient
 from trending.coingecko_client import CoinGeckoClient
 from trending.dexscreener_client import DexScreenerClient
 from trending.coin_data_io import CoinDataIo
 from trending.dex_token import DexDataIo, FUTURE_TIMES, DexToken
 from trending.trending_data_io import TrendingDataIo
+from trending.jupiter_quote_scraper import JupiterQuoteScraper
 from datetime import datetime, timezone
 import time
 import argparse
@@ -29,12 +32,14 @@ def safe_call(func, *args, **kwargs):
 
 class TrendingScraper:
 
-    def __init__(self, output_directory: str):
+    def __init__(self, output_directory: str, jup_client: JupiterClient):
         self.output_directory = output_directory
         self.coingecko = CoinGeckoClient(api_key=os.getenv("COINGECKO_KEY"))
+        self.jup_client = jup_client
         self.coin_data_io = CoinDataIo(output_directory)
         self.dex_coin_data_io = DexDataIo(output_directory)
         self.dex_client = DexScreenerClient()
+        self.jup_quote_scraper = JupiterQuoteScraper(jup_client, output_directory, 60)
 
     def processCoinGeckoTrendings(self):
         tokens = self.coingecko.get_trending_tokens()
@@ -50,37 +55,18 @@ class TrendingScraper:
                 raise e
     
     def processDexTrendings(self):
-        trending_data_io = TrendingDataIo(self.output_directory, "dex_trending.log")
+        #trending_data_io = TrendingDataIo(self.output_directory, "dex_trending.log")
         unique_tokens = []
         for tokenProfile in self.dex_client.get_latest_solana_token_profiles():
             if not self.dex_coin_data_io.token_exists(tokenProfile.token_address):
                 token_pair = self.dex_client.get_token_pair(tokenProfile.chain_id, tokenProfile.token_address)
+                # asyncio.run(self.runExchangeData(token_pair))
                 self.dex_coin_data_io.write_to_file(token_pair)
-                unique_tokens.append(token_pair.token_symbol)
+                unique_tokens.append(token_pair.token_address)
 
-        self.processTrending(unique_tokens, trending_data_io)
-
-    def populateDexFutures(self):
-        all_coins = self.dex_coin_data_io.load_all_dex_coins()
-        for time_entry in FUTURE_TIMES:
-            label = time_entry["label"]
-            interval = time_entry["interval"]
-            self.populateDexFuture(all_coins, label, interval)
-        
-    def populateDexFuture(self, all_coins: List[DexToken], label, interval):
-        cur_future = {a.token_address:a for a in self.dex_coin_data_io.load_all_dex_coins(label)}
-
-        for coin in all_coins:
-            if coin.token_address not in cur_future and coin.isDue(interval=interval):
-                try:
-                    token_pair = self.dex_client.get_token_pair(coin.chain_id, coin.token_address)
-                    if token_pair:
-                        self.dex_coin_data_io.write_to_file(token_pair, label)
-                    else:
-                        self.dex_coin_data_io.archive_token_files(coin.token_address)
-                except Exception as e:
-                    print(f"Failed to get {coin.token_address}")
-                    traceback.print_exc()
+        #self.processTrending(unique_tokens, trending_data_io)
+        if unique_tokens:
+            self.jup_quote_scraper.start_sampling(unique_tokens)
 
     def archiveDexTokens(self):
         last_future_label = FUTURE_TIMES[-1]["label"]
@@ -105,14 +91,16 @@ class TrendingScraper:
     def main(self):
         start_time = time.time()
         print(f"{getUtcString()} Starting Scraping")
-        safe_call(self.processCoinGeckoTrendings)
-        safe_call(self.populateDexFutures)
+        # safe_call(self.processCoinGeckoTrendings)
+        # safe_call(self.populateDexFutures) DEPRECATED
         safe_call(self.processDexTrendings)
-        safe_call(self.archiveDexTokens)
-        
-        end_time = time.time()
-        total_time = end_time - start_time
+        #safe_call(self.archiveDexTokens)
+        total_time = time.time() - start_time
         print(f"{getUtcString()} Done Scraping, took {total_time:.4f}s")
+
+        self.jup_quote_scraper.wait_for_completion()
+        total_time = time.time() - start_time
+        print(f"{getUtcString()} Done Quote Scraping, took {total_time:.4f}s")
 
 parser = argparse.ArgumentParser(
     description=""
@@ -127,7 +115,8 @@ parser.add_argument(
 
 args = parser.parse_args()
 try:
-    TrendingScraper(args.output).main()
+    client = JupiterClient(os.getenv("MAIN_WALLET"), os.getenv("SOL_NODE"))
+    TrendingScraper(args.output, client).main()
 except Exception as e:
     print(f"Error: {e}")
     print(traceback.format_exc())

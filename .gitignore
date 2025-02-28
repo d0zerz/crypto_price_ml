@@ -5,7 +5,9 @@
 __pycache__/
 .env
 
+.vscode/extensions.json
+
+*.xlsx
 .*coin_data/
-coin_data*.xlsx
 data/*
 *trending*.log*

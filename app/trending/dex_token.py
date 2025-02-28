@@ -33,25 +33,6 @@ FUTURE_TIMES = [
     },    
     ]
 
-OLD_FUTURE_TIMES = [
-    {
-        "label": "T30m",
-        "interval": timedelta(minutes=30)
-    },
-    {
-        "label": "T2hr",
-        "interval": timedelta(hours=2)
-    },
-    {
-        "label": "T6hr",
-        "interval": timedelta(hours=6)
-    },
-    {
-        "label": "T24h",
-        "interval": timedelta(hours=24)
-    },  
-    ]
-
 FUTURE_TIME_LABELS = [el["label"] for el in FUTURE_TIMES]
 
 @dataclass
@@ -61,6 +42,7 @@ class DexToken:
     token_address: str
     token_name: str
     token_symbol: str
+    dex_id: str
     price_usd: float
     price_native: float
     buys_m5: int
@@ -91,6 +73,7 @@ class DexToken:
             token_address=data["token_address"],
             token_name=data["token_name"],
             token_symbol=data["token_symbol"],
+            dex_id=data.get("dex_id",""),
             price_usd=data["price_usd"],
             price_native=data["price_native"],
             buys_m5=data["buys_m5"],
@@ -179,7 +162,7 @@ class DexDataIo:
         return futures[0]
 
     def _is_a_time_file(self, filename: str) -> bool:
-        for interval in OLD_FUTURE_TIMES:
+        for interval in FUTURE_TIMES:
             if filename.endswith(f'{interval["label"]}.json'):
                 return True
         return False

@@ -66,6 +66,7 @@ class DexScreenerClient:
             "token_address": token_address,
             "token_name": pairs[0]["baseToken"]["name"],
             "token_symbol": pairs[0]["baseToken"]["symbol"],
+            "dex_id": pairs[0]["dexId"],
             "price_usd": 0,
             "price_native": 0,
             "buys_m5": 0, "buys_h1": 0, "buys_h6": 0, "buys_h24": 0,

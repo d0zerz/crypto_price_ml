@@ -1,0 +1,183 @@
+import os
+import time
+import traceback
+from typing import List
+import pandas as pd
+import threading
+import asyncio
+from trading.jupiter_client import JupiterClient
+from datetime import datetime, timedelta
+from openpyxl import load_workbook
+
+
+class JupiterQuoteScraper:
+    """
+    A class for sampling exchange rates at specified intervals over a duration.
+    Stores results in an Excel file with minutes elapsed as columns and tokens as rows.
+    """
+    
+    def __init__(self, jup_client: JupiterClient, output_directory: str, duration_minutes: int=1):
+        """
+        Initialize the sampler.
+        
+        Args:
+            caller_instance: The instance that has the getJupQuotePrice method
+            duration_hours: Duration to run the sampling in hours
+        """
+        self.jup_client = jup_client
+        self.duration_minutes = duration_minutes
+        self.buy_amount = 500_000_000
+        self.sampling_thread = None
+        self.is_running = False
+        self.results_df = None
+        self.output_directory = output_directory
+        self.output_file = self.file_path = f"{output_directory}/jupiter_quotes.xlsx"
+
+    def get_interval(self, elapsed_minutes):
+            if elapsed_minutes < 10:
+                return 1  # Every 1 minute for first 10 minutes
+            elif elapsed_minutes < 30:
+                return 2  # Every 2 minutes from 10-30 minutes
+            elif elapsed_minutes < 60:
+                return 5  # Every 5 minutes from 30-60 minutes
+            else:
+                return 10  # Every 10 minutes after an hour    
+
+    async def _sample_exchange_rates(self, tokens: List[str]):
+        """
+        Returns:
+            DataFrame with minutes elapsed as columns and tokens as rows
+        """
+        # Initialize data storage
+        all_rates = {}
+        
+        # Define start and end times
+        start_time = datetime.now()
+        end_time = start_time + timedelta(minutes=self.duration_minutes)
+        
+        print(f"Starting exchange rate sampling at {start_time} for tokens {tokens}")
+        print(f"Will run until {end_time}")
+        
+        # Keep track of the next sample time
+        next_sample_time = start_time
+        
+        while next_sample_time <= end_time and self.is_running:
+            current_time = datetime.now()
+            
+            # If it's time to take a sample
+            if current_time >= next_sample_time:
+                # Calculate elapsed time in minutes for column name
+                elapsed_minutes = round((current_time - start_time).total_seconds() / 60)
+                column_name = f"M{elapsed_minutes:04}"
+                rates = {}
+                print(f"Sampling tokens {tokens} for time {column_name}")
+                for token in tokens:
+                    try:
+                        quote = await self.jup_client.get_buy_quote(token, self.buy_amount)
+                        rates[token] = quote.exchange_rate()
+                    except Exception as e:
+                        print(f"Error sampling {token}: {str(e)}")
+                
+                # Store the rates with elapsed minutes as key
+                all_rates[column_name] = rates
+                
+                current_interval = self.get_interval(elapsed_minutes)
+                next_sample_time = next_sample_time + timedelta(minutes=current_interval)
+                
+                print(f"Completed sampling at min {elapsed_minutes} (next sample in {current_interval} minutes)")
+            
+            # Sleep for a short time to prevent excessive CPU usage
+            await asyncio.sleep(1)
+        
+        # Create DataFrame from the collected data
+        # First, identify all unique tokens
+        all_tokens = set()
+        for rates in all_rates.values():
+            all_tokens.update(rates.keys())
+        
+        # Initialize DataFrame with tokens as index
+        df = pd.DataFrame(index=sorted(all_tokens))
+        df.index.name = 'token_address'
+        df['start_time'] = start_time
+        
+        # Fill in the data for each elapsed minute point
+        # Sort the column names numerically (as they're stored as strings)
+        sorted_columns = sorted(all_rates.keys())
+        
+        for minute in sorted_columns:
+            rates = all_rates[minute]
+            for token in all_tokens:
+                df.loc[token, minute] = rates.get(token, None)
+        
+        return df
+    
+    def _run_async_sampling(self, tokens: List[str]):
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:
+            self.results_df = loop.run_until_complete(self._sample_exchange_rates(tokens))
+            self.append_to_excel(self.output_file, self.results_df, 'quotes')
+            print(f"Sampling completed. Results saved to {self.output_file}")
+            
+        except Exception as e:
+            print(f"Error in sampling task: {str(e)}")
+            traceback.print_exc()
+        finally:
+            loop.close()
+            self.is_running = False
+
+    def append_to_excel(self, filename, df, sheet_name):
+        # Check if file exists
+        if not os.path.exists(filename):
+            # If file doesn't exist, write new file
+            with pd.ExcelWriter(filename, engine='openpyxl', mode='w') as writer:
+                df.to_excel(writer, sheet_name=sheet_name, index=True)
+            return
+
+        # Load existing workbook and sheet
+        book = load_workbook(filename)
+
+        if sheet_name in book.sheetnames:
+            sheet = book[sheet_name]
+            last_row = sheet.max_row
+            with pd.ExcelWriter(filename, engine='openpyxl', mode='a', if_sheet_exists='overlay') as writer:
+                df.to_excel(writer, sheet_name=sheet_name, index=True, header=False, startrow=last_row)
+        else:
+            # If the sheet does not exist, create a new one
+            with pd.ExcelWriter(filename, engine='openpyxl', mode='a') as writer:
+                df.to_excel(writer, sheet_name=sheet_name, index=True)
+
+    def start_sampling(self, tokens: List[str]):
+        if not tokens:
+            return self
+        if self.is_running:
+            print("Sampling is already running.")
+            return self
+        
+        self.is_running = True
+        self.sampling_thread = threading.Thread(target=self._run_async_sampling, args=(tokens,))
+        self.sampling_thread.daemon = True
+        self.sampling_thread.start()
+        
+        print(f"Background sampling task started. Will continue for {self.duration_minutes} minutes")
+        return self
+    
+    def stop_sampling(self):
+        if self.is_running:
+            self.is_running = False
+            print("Stopping sampling process. This may take a moment to complete...")
+        else:
+            print("No sampling process is currently running.")
+        return self
+    
+    def wait_for_completion(self):
+        if self.sampling_thread and self.sampling_thread.is_alive():
+            self.sampling_thread.join()
+            print("Sampling process has completed.")
+        return self
+    
+    def get_results(self):
+        return self.results_df
+ 
