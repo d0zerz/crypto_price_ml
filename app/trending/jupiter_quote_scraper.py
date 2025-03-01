@@ -65,13 +65,12 @@ class JupiterQuoteScraper:
                 elapsed_minutes = round((current_time - start_time).total_seconds() / 60)
                 column_name = f"M{elapsed_minutes:04}"
                 rates = {}
-                print(f"Sampling tokens on thread {threading.get_ident()} for time {column_name}")
                 for token in tokens:
                     try:
                         quote = await self.jup_client.get_buy_quote(token, self.buy_amount)
                         rates[token] = quote.exchange_rate()
                     except Exception as e:
-                        print(f"Error sampling {token}: {str(e)}")
+                        print(f"quoteErr:{token} | {str(e)}")
                 
                 # Store the rates with elapsed minutes as key
                 all_rates[column_name] = rates
@@ -110,10 +109,10 @@ class JupiterQuoteScraper:
             results_df = loop.run_until_complete(self._sample_exchange_rates(tokens))
             with self.excel_lock:
                 self.append_to_excel(self.output_file, results_df, 'quotes')
-                print(f"Sampling completed. Results saved to {self.output_file}")
+                print(f"Sampling completed on thread {threading.get_ident()}. Results saved to {self.output_file}")
             
         except Exception as e:
-            print(f"Error in sampling task: {str(e)}")
+            print(f"Error in sampling task thread {threading.get_ident()}: {str(e)}")
             traceback.print_exc()
         finally:
             loop.close()
