@@ -1,3 +1,4 @@
+import os
 import time
 from typing import Optional
 import base58
@@ -96,12 +97,10 @@ def genWallet():
     print(f"\nNew Wallet: pub:[{new_wallet.pubkey()}] b58:[{key_b58}] ")
 
 
-key = "5YVMBvakSYmSjWsPfTL8HWb6VyMGfu7aYCcxCtD2cL224pj8SdzHGKSAie1SzoiRwrqfyzkiaRvNutpd3FtRUbhS"
-key2 = "4ZizVbvXp7GiBmNFbDRsjKSAjYjhQTLqVrGJ3uorHzinq43CSrKv44GHQUcCN8Et3qkMWebMc6Rrf3cjs2A1cXmC"
-mainkey = "65tbUL3cv9dwWej1j3FSmoHQxW8XHZxw9xCRjpppHwK9FWcL7AxzZxzmhGUpjSdFBmBebKF2LKB4pyrUwvBmxRuM"
-client = SolanaClient("https://solana-mainnet.core.chainstack.com/04d6aa866fd95b892af65d4ee4aa6d2a", mainkey)
+test_key = "5YVMBvakSYmSjWsPfTL8HWb6VyMGfu7aYCcxCtD2cL224pj8SdzHGKSAie1SzoiRwrqfyzkiaRvNutpd3FtRUbhS"
+test_key2 = "4ZizVbvXp7GiBmNFbDRsjKSAjYjhQTLqVrGJ3uorHzinq43CSrKv44GHQUcCN8Et3qkMWebMc6Rrf3cjs2A1cXmC"
+client = SolanaClient(os.getenv("SOL_NODE"), os.getenv("MAIN_WALLET"))
 
-#genWallet()
 def sendTx():
     transaction = client.create_send_transaction("4KN4BfKFEmAxAxjFcTL86U76S23k7uq6EpNJM9oM3t7j", 1_000_000)
     signed_transaction = client.sign_transaction(transaction)
@@ -112,11 +111,13 @@ def sendTx():
     else:
         print(f"tx failed {transaction}")
 
+genWallet()
+
 amount = client.get_token_balance("1au1hAEZpM3G4MvkzBBr9xib1GiGzEMAqnsjuCzQSja")
 token = client.get_token("9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump")
 
 print(f"{amount} of shitcoint")
-print(f"{token.get_decimals} of shitcoint")
+#print(f"{token.get_decimals} of shitcoint")
 
 #sender = new_wallet["public_key"]
 #recipient = "RecipientPublicKeyHere"

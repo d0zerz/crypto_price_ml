@@ -5,6 +5,7 @@ from typing import List
 import pandas as pd
 import threading
 import asyncio
+import concurrent.futures
 from trading.jupiter_client import JupiterClient
 from datetime import datetime, timedelta
 from openpyxl import load_workbook
@@ -25,11 +26,10 @@ class JupiterQuoteScraper:
             duration_hours: Duration to run the sampling in hours
         """
         self.jup_client = jup_client
+        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=60)
         self.duration_minutes = duration_minutes
+        self.excel_lock = threading.Lock()
         self.buy_amount = 500_000_000
-        self.sampling_thread = None
-        self.is_running = False
-        self.results_df = None
         self.output_directory = output_directory
         self.output_file = self.file_path = f"{output_directory}/jupiter_quotes.xlsx"
 
@@ -48,20 +48,15 @@ class JupiterQuoteScraper:
         Returns:
             DataFrame with minutes elapsed as columns and tokens as rows
         """
-        # Initialize data storage
         all_rates = {}
         
-        # Define start and end times
         start_time = datetime.now()
         end_time = start_time + timedelta(minutes=self.duration_minutes)
-        
-        print(f"Starting exchange rate sampling at {start_time} for tokens {tokens}")
-        print(f"Will run until {end_time}")
-        
-        # Keep track of the next sample time
         next_sample_time = start_time
+
+        print(f"Starting exchange rate sampling at {start_time} for tokens {tokens}, thread {threading.get_ident()} ending at {end_time}")
         
-        while next_sample_time <= end_time and self.is_running:
+        while next_sample_time <= end_time:
             current_time = datetime.now()
             
             # If it's time to take a sample
@@ -70,7 +65,7 @@ class JupiterQuoteScraper:
                 elapsed_minutes = round((current_time - start_time).total_seconds() / 60)
                 column_name = f"M{elapsed_minutes:04}"
                 rates = {}
-                print(f"Sampling tokens {tokens} for time {column_name}")
+                print(f"Sampling tokens on thread {threading.get_ident()} for time {column_name}")
                 for token in tokens:
                     try:
                         quote = await self.jup_client.get_buy_quote(token, self.buy_amount)
@@ -84,9 +79,6 @@ class JupiterQuoteScraper:
                 current_interval = self.get_interval(elapsed_minutes)
                 next_sample_time = next_sample_time + timedelta(minutes=current_interval)
                 
-                print(f"Completed sampling at min {elapsed_minutes} (next sample in {current_interval} minutes)")
-            
-            # Sleep for a short time to prevent excessive CPU usage
             await asyncio.sleep(1)
         
         # Create DataFrame from the collected data
@@ -101,7 +93,6 @@ class JupiterQuoteScraper:
         df['start_time'] = start_time
         
         # Fill in the data for each elapsed minute point
-        # Sort the column names numerically (as they're stored as strings)
         sorted_columns = sorted(all_rates.keys())
         
         for minute in sorted_columns:
@@ -115,18 +106,17 @@ class JupiterQuoteScraper:
 
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        
         try:
-            self.results_df = loop.run_until_complete(self._sample_exchange_rates(tokens))
-            self.append_to_excel(self.output_file, self.results_df, 'quotes')
-            print(f"Sampling completed. Results saved to {self.output_file}")
+            results_df = loop.run_until_complete(self._sample_exchange_rates(tokens))
+            with self.excel_lock:
+                self.append_to_excel(self.output_file, results_df, 'quotes')
+                print(f"Sampling completed. Results saved to {self.output_file}")
             
         except Exception as e:
             print(f"Error in sampling task: {str(e)}")
             traceback.print_exc()
         finally:
             loop.close()
-            self.is_running = False
 
     def append_to_excel(self, filename, df, sheet_name):
         # Check if file exists
@@ -152,32 +142,6 @@ class JupiterQuoteScraper:
     def start_sampling(self, tokens: List[str]):
         if not tokens:
             return self
-        if self.is_running:
-            print("Sampling is already running.")
-            return self
-        
-        self.is_running = True
-        self.sampling_thread = threading.Thread(target=self._run_async_sampling, args=(tokens,))
-        self.sampling_thread.daemon = True
-        self.sampling_thread.start()
-        
-        print(f"Background sampling task started. Will continue for {self.duration_minutes} minutes")
+        self.executor.submit(self._run_async_sampling, tokens)
         return self
     
-    def stop_sampling(self):
-        if self.is_running:
-            self.is_running = False
-            print("Stopping sampling process. This may take a moment to complete...")
-        else:
-            print("No sampling process is currently running.")
-        return self
-    
-    def wait_for_completion(self):
-        if self.sampling_thread and self.sampling_thread.is_alive():
-            self.sampling_thread.join()
-            print("Sampling process has completed.")
-        return self
-    
-    def get_results(self):
-        return self.results_df
- 

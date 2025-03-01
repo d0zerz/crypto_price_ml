@@ -11,7 +11,7 @@ from trending.coin_data_io import CoinDataIo
 from trending.dex_token import DexDataIo, FUTURE_TIMES, DexToken
 from trending.trending_data_io import TrendingDataIo
 from trending.jupiter_quote_scraper import JupiterQuoteScraper
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import time
 import argparse
 
@@ -40,6 +40,8 @@ class TrendingScraper:
         self.dex_coin_data_io = DexDataIo(output_directory)
         self.dex_client = DexScreenerClient()
         self.jup_quote_scraper = JupiterQuoteScraper(jup_client, output_directory, 60)
+        self.scraping = True
+        self.scrape_interval_minutes = 1
 
     def processCoinGeckoTrendings(self):
         tokens = self.coingecko.get_trending_tokens()
@@ -60,13 +62,13 @@ class TrendingScraper:
         for tokenProfile in self.dex_client.get_latest_solana_token_profiles():
             if not self.dex_coin_data_io.token_exists(tokenProfile.token_address):
                 token_pair = self.dex_client.get_token_pair(tokenProfile.chain_id, tokenProfile.token_address)
-                # asyncio.run(self.runExchangeData(token_pair))
                 self.dex_coin_data_io.write_to_file(token_pair)
                 unique_tokens.append(token_pair.token_address)
 
-        #self.processTrending(unique_tokens, trending_data_io)
         if unique_tokens:
             self.jup_quote_scraper.start_sampling(unique_tokens)
+        else:
+            print("Nothing new")
 
     def archiveDexTokens(self):
         last_future_label = FUTURE_TIMES[-1]["label"]
@@ -88,19 +90,24 @@ class TrendingScraper:
             print(f"{formatted_time}: nothing new")
         return new_entries
 
+    def run_scrape_loop(self):
+        next_sample_time = datetime.now() 
+
+        while self.scraping:
+            current_time = datetime.now()
+            if current_time >= next_sample_time:
+                safe_call(self.processDexTrendings)
+                total_time = time.time() - int(current_time.timestamp())
+                print(f"{getUtcString()} Done Scraping, took {total_time:.4f}s")
+                next_sample_time = next_sample_time + timedelta(minutes=self.scrape_interval_minutes)
+            time.sleep(1)
+
     def main(self):
         start_time = time.time()
         print(f"{getUtcString()} Starting Scraping")
-        # safe_call(self.processCoinGeckoTrendings)
-        # safe_call(self.populateDexFutures) DEPRECATED
-        safe_call(self.processDexTrendings)
-        #safe_call(self.archiveDexTokens)
+        self.run_scrape_loop()
         total_time = time.time() - start_time
         print(f"{getUtcString()} Done Scraping, took {total_time:.4f}s")
-
-        self.jup_quote_scraper.wait_for_completion()
-        total_time = time.time() - start_time
-        print(f"{getUtcString()} Done Quote Scraping, took {total_time:.4f}s")
 
 parser = argparse.ArgumentParser(
     description=""
