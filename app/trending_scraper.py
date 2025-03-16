@@ -11,6 +11,7 @@ from trending.coin_data_io import CoinDataIo
 from trending.dex_token import DexDataIo, FUTURE_TIMES, DexToken
 from trending.trending_data_io import TrendingDataIo
 from trending.jupiter_quote_scraper import JupiterQuoteScraper
+from trading.jupiter_trader import DexTrader
 from datetime import datetime, timedelta, timezone
 import time
 import argparse
@@ -40,6 +41,7 @@ class TrendingScraper:
         self.dex_coin_data_io = DexDataIo(output_directory)
         self.dex_client = DexScreenerClient()
         self.jup_quote_scraper = JupiterQuoteScraper(jup_client, output_directory, 60)
+        self.dex_trader = DexTrader(jup_client, output_directory=output_directory)
         self.scraping = True
         self.scrape_interval_minutes = 1
 
@@ -61,9 +63,10 @@ class TrendingScraper:
         unique_tokens = []
         for tokenProfile in self.dex_client.get_latest_solana_token_profiles():
             if not self.dex_coin_data_io.token_exists(tokenProfile.token_address):
-                token_pair = self.dex_client.get_token_pair(tokenProfile.chain_id, tokenProfile.token_address)
-                self.dex_coin_data_io.write_to_file(token_pair)
-                unique_tokens.append(token_pair.token_address)
+                dex_token = self.dex_client.get_token_pair(tokenProfile.chain_id, tokenProfile.token_address)
+                self.dex_coin_data_io.write_to_file(dex_token)
+                unique_tokens.append(dex_token.token_address)
+                self.dex_trader.start_trading(dex_token)
 
         if unique_tokens:
             self.jup_quote_scraper.start_sampling(unique_tokens)

@@ -19,21 +19,20 @@ class DexAnalysis:
 
     def main(self):
         coinDataFrame = None
-        read_enabled = False
+        read_enabled = True
         if (os.path.exists(COIN_DATA_FILE) and read_enabled):
             coinDataFrame = pd.read_excel(io=COIN_DATA_FILE)
         else:
             coinDataFrame = self.processFiles()
             coinDataFrame["timestamp"] = coinDataFrame["timestamp"].dt.tz_localize(None)
-            coinDataFrame.to_excel(COIN_DATA_FILE, index=False)
+            coinDataFrame.to_excel(COIN_DATA_FILE, index=True, header=True)
 
         print(f"total coins: {len(coinDataFrame)}")
-        print(coinDataFrame.columns)
+        return coinDataFrame
     
     def isFutureLegit(self, coin: DexToken, future: DexToken, interval: timedelta) -> bool:
         # if the future is "close enough" to where it should be, then trust it.
-        return abs(coin.timestamp + interval - future.timestamp) < timedelta(minutes=5)
-
+        return abs(coin.timestamp + interval - future.timestamp) < timedelta(minutes=6)
 
     def getCoinFutures(self, coin: DexToken) -> dict:
         price_diffs = {}
@@ -47,7 +46,9 @@ class DexAnalysis:
 
     def processFiles(self) -> pd.DataFrame:
         rows = []
-        for coin in self.dex_coin_data_io.load_all_dex_coins():
+        all_coins = self.dex_coin_data_io.load_all_dex_coins()
+        print(f"getting futures for {len(all_coins)} coins")
+        for coin in all_coins:
             token_data = asdict(coin)
             futures_data = self.getCoinFutures(coin)
             token_data.update(futures_data)

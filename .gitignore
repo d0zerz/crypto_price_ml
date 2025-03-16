@@ -11,3 +11,4 @@ __pycache__/
 .*coin_data/
 data/*
 *trending*.log*
+app/prod.model

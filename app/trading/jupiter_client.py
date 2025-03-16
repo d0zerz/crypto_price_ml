@@ -49,8 +49,11 @@ class JupiterClient:
             query_trade_history_api_url="https://jup.ag/api/limit/v1/tradeHistory"
         )
 
-    async def get_buy_quote(self, output_mint: str, amount: int) -> Quote:
+    async def get_buy_shitcoin_quote(self, output_mint: str, amount: int) -> Quote:
         return await self.get_quote(SOL_BASE, output_mint, amount)
+
+    async def get_sell_shitcoin_quote(self, output_mint: str, amount: int) -> Quote:
+        return await self.get_quote(output_mint, SOL_BASE, amount)
 
     async def get_quote(self, input_mint: str, output_mint: str, amount: int) -> Quote:
         quote_data = await self.jupiter.quote(input_mint=input_mint, output_mint=output_mint, amount=amount)
@@ -87,17 +90,7 @@ class JupiterClient:
         transaction = VersionedTransaction.from_bytes(decoded_bytes)
         
         return transaction
-    
-    async def do_swap(self, input_mint: str, output_mint: str, amount: int, slippage_bps: int = 1):
-        transaction_data = await self.jupiter.swap(
-            input_mint=input_mint,
-            output_mint=output_mint,
-            amount=amount,
-            slippage_bps=slippage_bps
-        )
-        
-        return await self._sign_and_send(transaction_data)
-    
+
     async def open_limit_order(self, input_mint: str, output_mint: str, in_amount: int, out_amount: int):
         transaction_data = await self.jupiter.open_order(
             input_mint=input_mint,
@@ -126,7 +119,6 @@ class JupiterClient:
 # Example usage (async context needed):
 async def main():
     trader = JupiterClient(os.getenv("MAIN_WALLET"), os.getenv("SOL_NODE"))
-    #await trader.execute_swap("So11111111111111111111111111111111111111112", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", 5000000, 1)
     shitcoin = "9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump"
     amount = 1232661704592
     quote = await trader.get_quote(shitcoin, SOL_BASE, 614000000)

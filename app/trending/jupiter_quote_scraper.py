@@ -1,4 +1,5 @@
 import os
+import signal
 import time
 import traceback
 from typing import List
@@ -29,9 +30,17 @@ class JupiterQuoteScraper:
         self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=60)
         self.duration_minutes = duration_minutes
         self.excel_lock = threading.Lock()
+        self.shutdown_flag = threading.Event()
         self.buy_amount = 500_000_000
         self.output_directory = output_directory
         self.output_file = self.file_path = f"{output_directory}/jupiter_quotes.xlsx"
+        # Set up signal handlers
+        signal.signal(signal.SIGTERM, self.handle_shutdown)
+        signal.signal(signal.SIGINT, self.handle_shutdown)
+
+    def handle_shutdown(self, signum, frame):
+        print(f"Received signal {signum}. Starting graceful shutdown...")
+        self.shutdown_flag.set()
 
     def get_interval(self, elapsed_minutes):
             if elapsed_minutes < 10:
@@ -67,7 +76,7 @@ class JupiterQuoteScraper:
                 rates = {}
                 for token in tokens:
                     try:
-                        quote = await self.jup_client.get_buy_quote(token, self.buy_amount)
+                        quote = await self.jup_client.get_buy_shitcoin_quote(token, self.buy_amount)
                         rates[token] = quote.exchange_rate()
                     except Exception as e:
                         print(f"quoteErr:{token} | {str(e)}")
@@ -78,6 +87,9 @@ class JupiterQuoteScraper:
                 current_interval = self.get_interval(elapsed_minutes)
                 next_sample_time = next_sample_time + timedelta(minutes=current_interval)
                 
+            if self.shutdown_flag.is_set():
+                print(f"Shutting down scraping thread {threading.get_ident()} at {column_name} {current_time}")
+                break
             await asyncio.sleep(1)
         
         # Create DataFrame from the collected data
