@@ -7,16 +7,18 @@ from typing import List
 # Get module logger
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class TrendingData:
-    timestamp: datetime # UTC or bust
+    timestamp: datetime  # UTC or bust
     trendings: List[str]
     new_trendings: List[str]
+
 
 class TrendingDataIo:
     def __init__(self, trending_directory: str, logfile: str = "trending.log"):
         self.file_path = f"{trending_directory}/{logfile}"
-        
+
     def write_to_file(self, token_str):
         with open(self.file_path, "a", encoding="utf-8") as file:
             file.write(f"{token_str}\n")
@@ -43,7 +45,7 @@ class TrendingDataIo:
     def get_last_trending(self) -> list:
         try:
             last_line = self.read_last_trending_line()
-            if (last_line and len(last_line) > 1):
+            if last_line and len(last_line) > 1:
                 return last_line[1]
             else:
                 return []

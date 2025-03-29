@@ -5,4 +5,4 @@ logger = logging.getLogger(__name__)
 
 """
 Utility package for common functionality
-""" 
+"""

@@ -9,9 +9,11 @@ from prices.price_data import PriceData
 
 logger = logging.getLogger(__name__)
 
+
 class RateLimitException(Exception):
     def __init__(self, message):
         super().__init__(message)
+
 
 class CoinGeckoClient:
     def __init__(self, api_key: str):
@@ -22,18 +24,15 @@ class CoinGeckoClient:
         """
         self.api_key = api_key
         self.base_url = "https://api.coingecko.com/api/v3"
-        self.headers = {
-            "accept": "application/json",
-            "x-cg-demo-api-key": self.api_key
-        }
+        self.headers = {"accept": "application/json", "x-cg-demo-api-key": self.api_key}
 
     def _get_url(self, suffix_path):
         return f"{self.base_url}{suffix_path}"
-    
+
     def _do_http(self, url, params={}, raw=False) -> dict:
         try:
             response = requests.get(url, params=params, headers=self.headers)
-            if (response.status_code == 429):
+            if response.status_code == 429:
                 raise RateLimitException("")
 
             response.raise_for_status()  # Raise an error for bad status codes
@@ -50,17 +49,14 @@ class CoinGeckoClient:
 
         url = self._get_url(f"/coins/{coin.lower()}/market_chart")
         vsCurrency = "usd" if coin == "btc" else "btc"
-        params = {
-            'vs_currency': vsCurrency,
-            'days': days_ago
-            }
+        params = {"vs_currency": vsCurrency, "days": days_ago}
         data = self._do_http(url, params=params)
         if not data:
             return None
         prices = data["prices"]
         pricesDf = pd.DataFrame(prices, columns=["timestamp", "price_vs_btc"])
-        pricesDf['timestamp'] = pd.to_datetime(pricesDf['timestamp'], unit='ms')
-        pricesDf.set_index('timestamp', inplace=True)
+        pricesDf["timestamp"] = pd.to_datetime(pricesDf["timestamp"], unit="ms")
+        pricesDf.set_index("timestamp", inplace=True)
         return PriceData(coin, pricesDf)
 
     def get_coin_map(self):
@@ -83,16 +79,13 @@ class CoinGeckoClient:
             rank = item["item"]["market_cap_rank"]
             trending_tokens.append((id, name, symbol, market_cap, rank))
         return trending_tokens
-    
+
     def get_coin_data(self, coin: str):
         url = self._get_url(f"/coins/{coin.lower()}")
         data = self._do_http(url)
-          # Get the current UTC timestamp
+        # Get the current UTC timestamp
         current_utc_timestamp = datetime.now(timezone.utc).isoformat()
-        
+
         # Wrap the data in a higher-level structure
-        wrapped_data = {
-        "timestamp": current_utc_timestamp,
-        "data": data
-        }
+        wrapped_data = {"timestamp": current_utc_timestamp, "data": data}
         return json.dumps(wrapped_data, indent=4)

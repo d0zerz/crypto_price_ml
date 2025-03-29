@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 COIN_DATA_DIR = ".coin_data"
 
+
 @dataclass
 class CoinData:
     data_snapshot_time: datetime
@@ -87,6 +88,7 @@ class CoinData:
                 "price_change_percentage_1y_in_currency", {}
             ).get("btc"),
         )
+
 
 class CoinDataIo:
 

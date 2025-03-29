@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 COIN_DATA_FILE = "dex_coin_data_dump.xlsx"
 
+
 class DexAnalysis:
 
     def __init__(self, trending_dir: str):
@@ -24,7 +25,7 @@ class DexAnalysis:
     def main(self):
         coinDataFrame = None
         read_enabled = True
-        if (os.path.exists(COIN_DATA_FILE) and read_enabled):
+        if os.path.exists(COIN_DATA_FILE) and read_enabled:
             coinDataFrame = pd.read_excel(io=COIN_DATA_FILE)
         else:
             coinDataFrame = self.processFiles()
@@ -33,8 +34,10 @@ class DexAnalysis:
 
         logger.info(f"total coins: {len(coinDataFrame)}")
         return coinDataFrame
-    
-    def isFutureLegit(self, coin: DexToken, future: DexToken, interval: timedelta) -> bool:
+
+    def isFutureLegit(
+        self, coin: DexToken, future: DexToken, interval: timedelta
+    ) -> bool:
         # if the future is "close enough" to where it should be, then trust it.
         return abs(coin.timestamp + interval - future.timestamp) < timedelta(minutes=6)
 
@@ -42,9 +45,14 @@ class DexAnalysis:
         price_diffs = {}
         for future_time in FUTURE_TIMES:
             future_label = future_time["label"]
-            future = self.dex_coin_data_io.load_future(token_address=coin.token_address, future_name=future_label)
+            future = self.dex_coin_data_io.load_future(
+                token_address=coin.token_address, future_name=future_label
+            )
             if future and self.isFutureLegit(coin, future, future_time["interval"]):
-                price_diff = round(100 * (future.price_native - coin.price_native) / coin.price_native, 3)
+                price_diff = round(
+                    100 * (future.price_native - coin.price_native) / coin.price_native,
+                    3,
+                )
                 price_diffs[f"{future_label}_diff_pct"] = price_diff
         return price_diffs
 
@@ -59,4 +67,3 @@ class DexAnalysis:
             rows.append(token_data)
             logger.info(f"{coin.token_symbol} | {coin.token_address}")
         return pd.DataFrame(rows)
-        

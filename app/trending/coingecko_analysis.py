@@ -18,6 +18,7 @@ COIN_DATA_FILE = "coin_data_dump.xlsx"
 # Get module logger
 logger = logging.getLogger(__name__)
 
+
 class CoingeckoAnalysis:
 
     INTERVALS = [
@@ -35,13 +36,15 @@ class CoingeckoAnalysis:
         self.dex_coin_data_io = DexDataIo(trending_dir)
 
         coin_field_names = [field.name for field in fields(CoinData)]
-        interval_names = [f"{round(i.total_seconds() / 3600)}hr_after" for i in self.INTERVALS]
+        interval_names = [
+            f"{round(i.total_seconds() / 3600)}hr_after" for i in self.INTERVALS
+        ]
         self.dataframe_cols = coin_field_names + interval_names
 
     def main(self):
         io = TrendingDataIo(self.trending_dir)
         coinDataFrame = None
-        if (os.path.exists(COIN_DATA_FILE)):
+        if os.path.exists(COIN_DATA_FILE):
             coinDataFrame = pd.read_excel(io=COIN_DATA_FILE)
         else:
             trendings = io.getTrendings()
@@ -115,11 +118,15 @@ class CoingeckoAnalysis:
                 logger.error(f"No coin in map found for {coin}", exc_info=True)
                 return None
             except PriceDataNotFoundException as e:
-                logger.error(f"No close enough price data found for {coin}", exc_info=True)
+                logger.error(
+                    f"No close enough price data found for {coin}", exc_info=True
+                )
                 return None
             except RateLimitException as e:
                 if attempts > 10:
-                    logger.error(f"Giving up on {coin} after 10 attempts", exc_info=True)
+                    logger.error(
+                        f"Giving up on {coin} after 10 attempts", exc_info=True
+                    )
                     raise Exception(f"giving up on {coin} after 10 attempts")
                 logger.warning(f"Rate Limited: retrying on {coin} in 60s")
                 time.sleep(60)

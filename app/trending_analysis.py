@@ -9,16 +9,17 @@ from trending.coingecko_client import CoinGeckoClient
 from trending.dex_analysis import DexAnalysis
 from utils.logging_config import configure_logging
 
-# Get module logger
 logger = logging.getLogger(__name__)
+
 
 def main(trending_dir: str):
     dex_df = DexAnalysis(trending_dir).main()
     DexModel().train_crypto_models(dex_df)
 
-    #cg_key = os.getenv("COINGECKO_KEY")
-    #client = CoinGeckoClient(api_key=cg_key)
-    #CoingeckoAnalysis(client, trending_dir).main()
+    # cg_key = os.getenv("COINGECKO_KEY")
+    # client = CoinGeckoClient(api_key=cg_key)
+    # CoingeckoAnalysis(client, trending_dir).main()
+
 
 parser = argparse.ArgumentParser(description="Analyze trending.log")
 parser.add_argument(
@@ -31,7 +32,6 @@ parser.add_argument(
 args = parser.parse_args()
 
 try:
-    # Configure logging
     configure_logging(log_dir=args.trending, logfile="analysis.log")
     main(args.trending)
 except Exception as e:

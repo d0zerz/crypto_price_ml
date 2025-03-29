@@ -26,11 +26,15 @@ import logging
 
 
 class SolanaClient:
-    def __init__(self, rpc_url: str = "https://api.mainnet-beta.solana.com", keypair_b58: str = None):
+    def __init__(
+        self,
+        rpc_url: str = "https://api.mainnet-beta.solana.com",
+        keypair_b58: str = None,
+    ):
         self.client = Client(rpc_url)
         self.keypair = Keypair.from_base58_string(keypair_b58)
         logger.info(f"Loaded Wallet: pub:[{self.keypair.pubkey()}]")
-    
+
     def create_send_transaction(self, recipient: str, amount: int) -> Transaction:
         """Creates a transaction for transferring SOL."""
         sender_pubkey = self.keypair.pubkey()
@@ -43,60 +47,78 @@ class SolanaClient:
                 TransferParams(
                     from_pubkey=sender_pubkey,
                     to_pubkey=recipient_pubkey,
-                    lamports=amount  # Amount in lamports (1 SOL = 1,000,000,000 lamports)
+                    lamports=amount,  # Amount in lamports (1 SOL = 1,000,000,000 lamports)
                 )
             )
         )
         return txn
-    
+
     def get_pubkey(self) -> Pubkey:
         return self.keypair.pubkey()
-    
+
     def get_token(self, token_mint: str) -> Token:
         return Token(self.client, token_mint, TOKEN_PROGRAM_ID, None)
-    
+
     def get_token_balance(self, token_mint) -> int:
         token_mint_pubkey = Pubkey.from_string(token_mint)
 
         # Get the associated token account
-        associated_token_account = get_associated_token_address(self.keypair.pubkey(), token_mint_pubkey)
+        associated_token_account = get_associated_token_address(
+            self.keypair.pubkey(), token_mint_pubkey
+        )
 
         # Fetch account balance
         response = self.client.get_token_account_balance(associated_token_account)
-        
+
         if response.value is None:
             return 0  # No balance found (account might not exist)
-        
-        return int(response.value.amount) 
+
+        return int(response.value.amount)
 
     def sign_transaction(self, transaction: Transaction) -> Transaction:
         transaction.sign(self.keypair)
         return transaction
 
-    def send_and_finalize(self, transaction: Transaction) -> Optional[TransactionStatus]:
+    def send_and_finalize(
+        self, transaction: Transaction
+    ) -> Optional[TransactionStatus]:
         return self.wait_for_finalization(self.send_transaction(transaction))
 
     def send_transaction(self, transaction: Transaction) -> Signature:
         """Sends a signed transaction to the Solana blockchain."""
         try:
-            response = self.client.send_transaction(transaction.serialize(), opts=TxOpts(skip_preflight=True, skip_confirmation=True, preflight_commitment="processed"))
+            response = self.client.send_transaction(
+                transaction.serialize(),
+                opts=TxOpts(
+                    skip_preflight=True,
+                    skip_confirmation=True,
+                    preflight_commitment="processed",
+                ),
+            )
             return response.value
         except Exception as e:
             logger.error("failed to send transaction", exc_info=True)
             return None
-        
-    def wait_for_finalization(self, tx_sig: Signature, max_retries=30, sleep_time=2) -> Optional[TransactionStatus]:
+
+    def wait_for_finalization(
+        self, tx_sig: Signature, max_retries=30, sleep_time=2
+    ) -> Optional[TransactionStatus]:
         status = None
         for _ in range(max_retries):
             response = self.client.get_signature_statuses([tx_sig])
             status = response.value[0]
 
-            if status and status.confirmation_status == TransactionConfirmationStatus.Finalized:
+            if (
+                status
+                and status.confirmation_status
+                == TransactionConfirmationStatus.Finalized
+            ):
                 return status  # Transaction is finalized
 
             time.sleep(sleep_time)  # Wait before retrying
 
         return status  # Timed out
+
 
 def genWallet():
     new_wallet = Keypair()
@@ -108,8 +130,11 @@ test_key = "5YVMBvakSYmSjWsPfTL8HWb6VyMGfu7aYCcxCtD2cL224pj8SdzHGKSAie1SzoiRwrqf
 test_key2 = "4ZizVbvXp7GiBmNFbDRsjKSAjYjhQTLqVrGJ3uorHzinq43CSrKv44GHQUcCN8Et3qkMWebMc6Rrf3cjs2A1cXmC"
 client = SolanaClient(os.getenv("SOL_NODE"), os.getenv("MAIN_WALLET"))
 
+
 def sendTx():
-    transaction = client.create_send_transaction("4KN4BfKFEmAxAxjFcTL86U76S23k7uq6EpNJM9oM3t7j", 1_000_000)
+    transaction = client.create_send_transaction(
+        "4KN4BfKFEmAxAxjFcTL86U76S23k7uq6EpNJM9oM3t7j", 1_000_000
+    )
     signed_transaction = client.sign_transaction(transaction)
     logger.info("sending transaction")
     status = client.send_and_finalize(signed_transaction)
@@ -118,19 +143,20 @@ def sendTx():
     else:
         logger.error(f"tx failed {transaction}", exc_info=True)
 
+
 genWallet()
 
 amount = client.get_token_balance("1au1hAEZpM3G4MvkzBBr9xib1GiGzEMAqnsjuCzQSja")
 token = client.get_token("9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump")
 
 logger.info(f"{amount} of shitcoint")
-#print(f"{token.get_decimals} of shitcoint")
+# print(f"{token.get_decimals} of shitcoint")
 
-#sender = new_wallet["public_key"]
-#recipient = "RecipientPublicKeyHere"
-#amount = 1000000  # 0.001 SOL (1 SOL = 1,000,000,000 lamports)
+# sender = new_wallet["public_key"]
+# recipient = "RecipientPublicKeyHere"
+# amount = 1000000  # 0.001 SOL (1 SOL = 1,000,000,000 lamports)
 
-#transaction = wallet.create_transaction(sender, recipient, amount)
-#signed_transaction = wallet.sign_transaction(transaction, new_wallet["private_key"])
-#tx_signature = wallet.send_transaction(signed_transaction)
-#print("Transaction Signature:", tx_signature)
+# transaction = wallet.create_transaction(sender, recipient, amount)
+# signed_transaction = wallet.sign_transaction(transaction, new_wallet["private_key"])
+# tx_signature = wallet.send_transaction(signed_transaction)
+# print("Transaction Signature:", tx_signature)

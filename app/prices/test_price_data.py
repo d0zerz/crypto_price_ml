@@ -14,15 +14,15 @@ import logging
 class TestPriceData(unittest.TestCase):
     def setUp(self):
         """Set up a sample DataFrame for testing."""
-        data = [ 
-                [datetime(2024, 12, 25, 10, 0), 100],
-                [datetime(2024, 12, 26, 12, 0), 150],
-                [datetime(2024, 12, 27, 14, 0), 200],
-                [datetime(2024, 12, 28, 0, 0), 300],
-                [datetime(2024, 12, 29, 0, 0), 400],
-            ]
+        data = [
+            [datetime(2024, 12, 25, 10, 0), 100],
+            [datetime(2024, 12, 26, 12, 0), 150],
+            [datetime(2024, 12, 27, 14, 0), 200],
+            [datetime(2024, 12, 28, 0, 0), 300],
+            [datetime(2024, 12, 29, 0, 0), 400],
+        ]
         self.pricesDf = pd.DataFrame(data, columns=["timestamp", "price_vs_btc"])
-        self.pricesDf.set_index('timestamp', inplace=True)
+        self.pricesDf.set_index("timestamp", inplace=True)
         self.priceData = PriceData("fake", self.pricesDf)
 
     def test_find_closest_exact_match(self):
@@ -47,7 +47,7 @@ class TestPriceData(unittest.TestCase):
         target = datetime(2024, 12, 24, 9, 0)
         price = self.priceData.getClosestPrice(target)
         assert price == 100.0
-    
+
     def test_find_closest_halfway(self):
         """Test the method with a target datetime earlier than all entries."""
         target = datetime(2024, 12, 28, 11, 59)
@@ -60,5 +60,6 @@ class TestPriceData(unittest.TestCase):
         price = self.priceData.getClosestPrice(target)
         assert price == 400.0
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

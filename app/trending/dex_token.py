@@ -10,33 +10,16 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 FUTURE_TIMES = [
-    {
-        "label": "T10m",
-        "interval": timedelta(minutes=10)
-    },
-    {
-        "label": "T30m",
-        "interval": timedelta(minutes=30)
-    },
-    {
-        "label": "T1hr",
-        "interval": timedelta(hours=1)
-    },
-    {
-        "label": "T3hr",
-        "interval": timedelta(hours=3)
-    },
-    {
-        "label": "T8hr",
-        "interval": timedelta(hours=8)
-    },
-    {
-        "label": "T24h",
-        "interval": timedelta(hours=24)
-    },    
-    ]
+    {"label": "T10m", "interval": timedelta(minutes=10)},
+    {"label": "T30m", "interval": timedelta(minutes=30)},
+    {"label": "T1hr", "interval": timedelta(hours=1)},
+    {"label": "T3hr", "interval": timedelta(hours=3)},
+    {"label": "T8hr", "interval": timedelta(hours=8)},
+    {"label": "T24h", "interval": timedelta(hours=24)},
+]
 
 FUTURE_TIME_LABELS = [el["label"] for el in FUTURE_TIMES]
+
 
 @dataclass
 class DexToken:
@@ -76,7 +59,7 @@ class DexToken:
             token_address=data["token_address"],
             token_name=data["token_name"],
             token_symbol=data["token_symbol"],
-            dex_id=data.get("dex_id",""),
+            dex_id=data.get("dex_id", ""),
             price_usd=data["price_usd"],
             price_native=data["price_native"],
             buys_m5=data["buys_m5"],
@@ -93,8 +76,10 @@ class DexToken:
             market_cap=data["market_cap"],
         )
 
+
 DEX_COIN_DATA_DIR = ".dex_coin_data"
 ARCHIVE_DIR = ".archive"
+
 
 class DexDataIo:
 
@@ -104,11 +89,11 @@ class DexDataIo:
 
     def get_file_path(self, coin: str) -> str:
         return f"{self.base_path}/{DEX_COIN_DATA_DIR}/dex_{coin}"
-    
+
     def token_exists(self, token_address):
         return os.path.exists(self._get_token_file_path(token_address))
 
-    def _get_token_file_path(self, token_address, suffix: str=""):
+    def _get_token_file_path(self, token_address, suffix: str = ""):
         suf = ".json"
         if suffix:
             suf = f"_{suffix}.json"
@@ -120,11 +105,11 @@ class DexDataIo:
         if not os.path.isdir(directory):
             logger.error(f"Error: {directory} is not a Directory ", exc_info=True)
             return
-        
+
         # Create the archive directory if it doesn't exist
         archive_dir = os.path.join(directory, ARCHIVE_DIR)
         os.makedirs(archive_dir, exist_ok=True)
-        
+
         # Find and move all matching _T*.json files
         for file in os.listdir(directory):
             if file.startswith(f"dex_{token}") and file.endswith(".json"):
@@ -136,7 +121,7 @@ class DexDataIo:
                     logger.error(f"Failed to archive {file}: {e}", exc_info=True)
 
     def write_to_file(self, token: DexToken, suffix: Optional[str] = None):
-        file_path=self._get_token_file_path(token.token_address, suffix)
+        file_path = self._get_token_file_path(token.token_address, suffix)
         if os.path.exists(self._get_token_file_path(file_path)):
             return
 
@@ -146,19 +131,21 @@ class DexDataIo:
 
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(asdict(token), f, indent=4)
-    
+
     # no futures
-    def load_all_dex_coins(self, future_label = None) -> List[DexToken]:
+    def load_all_dex_coins(self, future_label=None) -> List[DexToken]:
         if future_label:
-            return self._load_dex_coin_data("dex_", f'_{future_label}.json')
+            return self._load_dex_coin_data("dex_", f"_{future_label}.json")
         else:
             return self._load_dex_coin_data("dex_", None)
-    
+
     def load_all_futures(self, token_address):
-        return self._load_dex_coin_data(f"dex_{token_address}", '.json')
-    
+        return self._load_dex_coin_data(f"dex_{token_address}", ".json")
+
     def load_future(self, token_address, future_name) -> DexToken:
-        futures = self._load_dex_coin_data(f"dex_{token_address}", f'_{future_name}.json')
+        futures = self._load_dex_coin_data(
+            f"dex_{token_address}", f"_{future_name}.json"
+        )
         assert len(futures) < 2
         if not futures or len(futures) == 0:
             return None
@@ -174,9 +161,10 @@ class DexDataIo:
         if not self.dir_cache:
             self.dir_cache = os.listdir(directory)
         return self.dir_cache
-    
 
-    def _load_dex_coin_data(self, starts_with: str, time_mod: Optional[str] = None) -> List[DexToken]:
+    def _load_dex_coin_data(
+        self, starts_with: str, time_mod: Optional[str] = None
+    ) -> List[DexToken]:
         coin_data_list = []
         directory = os.path.join(self.base_path, DEX_COIN_DATA_DIR)
 
@@ -186,7 +174,9 @@ class DexDataIo:
         ends_with = f"{time_mod}" if time_mod else ".json"
         for filename in self._get_dir_list(directory):
             should_exclude = time_mod is None and self._is_a_time_file(filename)
-            if not should_exclude and (filename.startswith(starts_with) and filename.endswith(ends_with)):
+            if not should_exclude and (
+                filename.startswith(starts_with) and filename.endswith(ends_with)
+            ):
                 file_path = os.path.join(directory, filename)
                 try:
                     with open(file_path, "r", encoding="utf-8") as f:

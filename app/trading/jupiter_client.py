@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 SOL_BASE = "So11111111111111111111111111111111111111112"
 
+
 @dataclass
 class Quote:
     in_amount: int
@@ -33,7 +34,8 @@ class Quote:
 
     def exchange_rate(self) -> float:
         return self.in_amount / self.out_amount
-    
+
+
 class JupiterClient:
     def __init__(self, private_key_str: str, rpc_url: str):
         self.private_key = Keypair.from_base58_string(private_key_str)
@@ -47,7 +49,7 @@ class JupiterClient:
             cancel_orders_api_url="https://jup.ag/api/limit/v1/cancelOrders",
             query_open_orders_api_url="https://jup.ag/api/limit/v1/openOrders?wallet=",
             query_order_history_api_url="https://jup.ag/api/limit/v1/orderHistory",
-            query_trade_history_api_url="https://jup.ag/api/limit/v1/tradeHistory"
+            query_trade_history_api_url="https://jup.ag/api/limit/v1/tradeHistory",
         )
 
     async def get_buy_shitcoin_quote(self, output_mint: str, amount: int) -> Quote:
@@ -57,65 +59,82 @@ class JupiterClient:
         return await self.get_quote(output_mint, SOL_BASE, amount)
 
     async def get_quote(self, input_mint: str, output_mint: str, amount: int) -> Quote:
-        quote_data = await self.jupiter.quote(input_mint=input_mint, output_mint=output_mint, amount=amount)
-        
+        quote_data = await self.jupiter.quote(
+            input_mint=input_mint, output_mint=output_mint, amount=amount
+        )
+
         # Extract relevant fields from the response
-        in_amount = int(quote_data.get('inAmount', 0))  # Ensure conversion to integer
-        out_amount = int(quote_data.get('outAmount', 0))
-        in_mint = quote_data.get('inputMint', '')
-        out_mint = quote_data.get('outputMint', '')
-        
+        in_amount = int(quote_data.get("inAmount", 0))  # Ensure conversion to integer
+        out_amount = int(quote_data.get("outAmount", 0))
+        in_mint = quote_data.get("inputMint", "")
+        out_mint = quote_data.get("outputMint", "")
+
         # Optional fields (if present)
-        slippage = float(quote_data.get('slippageBps', 0.0))
-        
+        slippage = float(quote_data.get("slippageBps", 0.0))
+
         # Return the populated Quote dataclass
         return Quote(
             in_amount=in_amount,
             out_amount=out_amount,
             in_mint=in_mint,
             out_mint=out_mint,
-            slippage=slippage
+            slippage=slippage,
         )
 
-    async def get_swap(self, input_mint: str, output_mint: str, amount: int, slippage_bps: int = 1) -> VersionedTransaction:
+    async def get_swap(
+        self, input_mint: str, output_mint: str, amount: int, slippage_bps: int = 1
+    ) -> VersionedTransaction:
         transaction_data = await self.jupiter.swap(
             input_mint=input_mint,
             output_mint=output_mint,
             amount=amount,
-            slippage_bps=slippage_bps
+            slippage_bps=slippage_bps,
         )
 
         decoded_bytes = base64.b64decode(transaction_data)
 
         # Step 2: Deserialize the Solana Transaction
         transaction = VersionedTransaction.from_bytes(decoded_bytes)
-        
+
         return transaction
 
-    async def open_limit_order(self, input_mint: str, output_mint: str, in_amount: int, out_amount: int):
+    async def open_limit_order(
+        self, input_mint: str, output_mint: str, in_amount: int, out_amount: int
+    ):
         transaction_data = await self.jupiter.open_order(
             input_mint=input_mint,
             output_mint=output_mint,
             in_amount=in_amount,
-            out_amount=out_amount
+            out_amount=out_amount,
         )
-        
-        return await self._sign_and_send(transaction_data['transaction_data'], extra_signature=transaction_data['signature2'])
 
-    
+        return await self._sign_and_send(
+            transaction_data["transaction_data"],
+            extra_signature=transaction_data["signature2"],
+        )
+
     async def _sign_and_send(self, transaction_data: str, extra_signature=None):
-        raw_transaction = VersionedTransaction.from_bytes(base64.b64decode(transaction_data))
-        signature = self.private_key.sign_message(message.to_bytes_versioned(raw_transaction.message))
+        raw_transaction = VersionedTransaction.from_bytes(
+            base64.b64decode(transaction_data)
+        )
+        signature = self.private_key.sign_message(
+            message.to_bytes_versioned(raw_transaction.message)
+        )
         signatures = [signature]
         if extra_signature:
             signatures.append(extra_signature)
-        
+
         signed_txn = VersionedTransaction.populate(raw_transaction.message, signatures)
         opts = TxOpts(skip_preflight=False, preflight_commitment=Processed)
-        result = await self.async_client.send_raw_transaction(txn=bytes(signed_txn), opts=opts)
-        transaction_id = json.loads(result.to_json())['result']
-        logger.info(f"Transaction sent: https://explorer.solana.com/tx/{transaction_id}")
+        result = await self.async_client.send_raw_transaction(
+            txn=bytes(signed_txn), opts=opts
+        )
+        transaction_id = json.loads(result.to_json())["result"]
+        logger.info(
+            f"Transaction sent: https://explorer.solana.com/tx/{transaction_id}"
+        )
         return transaction_id
+
 
 # Example usage (async context needed):
 async def main():
@@ -128,6 +147,7 @@ async def main():
     quote = await trader.get_quote(SOL_BASE, shitcoin, 1227000000)
     logger.debug(f"sol to shit exchange rate: {quote.exchange_rate()}")
 
-   # tx = await trader.get_swap(shitcoin,SOL_BASE, amount)
-    #logger.debug(f"Transaction: {tx}")
-#asyncio.run(main())
+
+# tx = await trader.get_swap(shitcoin,SOL_BASE, amount)
+# logger.debug(f"Transaction: {tx}")
+# asyncio.run(main())

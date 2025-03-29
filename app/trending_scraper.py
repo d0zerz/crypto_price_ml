@@ -20,9 +20,11 @@ from utils.logging_config import configure_logging
 # Get module logger
 logger = logging.getLogger(__name__)
 
+
 def getUtcString():
     utc_now = datetime.now(timezone.utc)
     return utc_now.strftime("%Y-%m-%d %H:%M:%S")
+
 
 def safe_call(func, *args, **kwargs):
     try:
@@ -31,6 +33,7 @@ def safe_call(func, *args, **kwargs):
     except Exception as e:
         logger.error(f"Error occurred: {e}", exc_info=True)
         return None
+
 
 class TrendingScraper:
 
@@ -50,21 +53,27 @@ class TrendingScraper:
         tokens = self.coingecko.get_trending_tokens()
         unique_tokens = sorted({entry[0] for entry in tokens})
         trending_data_io = TrendingDataIo(self.output_directory)
-        new_entries = self.processTrending(unique_tokens=unique_tokens, trending_data_io=trending_data_io)
+        new_entries = self.processTrending(
+            unique_tokens=unique_tokens, trending_data_io=trending_data_io
+        )
         for coin in new_entries:
             try:
                 if not self.coin_data_io.fileExists(coin):
-                    self.coin_data_io.write_to_file(coin, self.coingecko.get_coin_data(coin))
+                    self.coin_data_io.write_to_file(
+                        coin, self.coingecko.get_coin_data(coin)
+                    )
             except Exception as e:
                 logger.error(f"Failed to write coin {coin}", exc_info=True)
                 raise e
-    
+
     def processDexTrendings(self):
-        #trending_data_io = TrendingDataIo(self.output_directory, "dex_trending.log")
+        # trending_data_io = TrendingDataIo(self.output_directory, "dex_trending.log")
         unique_tokens = []
         for tokenProfile in self.dex_client.get_latest_solana_token_profiles():
             if not self.dex_coin_data_io.token_exists(tokenProfile.token_address):
-                dex_token = self.dex_client.get_token_pair(tokenProfile.chain_id, tokenProfile.token_address)
+                dex_token = self.dex_client.get_token_pair(
+                    tokenProfile.chain_id, tokenProfile.token_address
+                )
                 self.dex_coin_data_io.write_to_file(dex_token)
                 unique_tokens.append(dex_token.token_address)
                 self.dex_trader.start_trading(dex_token)
@@ -84,7 +93,7 @@ class TrendingScraper:
         formatted_time = getUtcString()
         new_entries = []
         if last_trending:
-            new_entries =  [item for item in unique_tokens if item not in last_trending]
+            new_entries = [item for item in unique_tokens if item not in last_trending]
 
         if new_entries or not last_trending:
             printstr = str((formatted_time, unique_tokens, new_entries))
@@ -95,7 +104,7 @@ class TrendingScraper:
         return new_entries
 
     def run_scrape_loop(self):
-        next_sample_time = datetime.now() 
+        next_sample_time = datetime.now()
 
         while self.scraping:
             current_time = datetime.now()
@@ -103,7 +112,9 @@ class TrendingScraper:
                 safe_call(self.processDexTrendings)
                 total_time = time.time() - int(current_time.timestamp())
                 logger.info(f"Done Scraping, took {total_time:.4f}s")
-                next_sample_time = next_sample_time + timedelta(minutes=self.scrape_interval_minutes)
+                next_sample_time = next_sample_time + timedelta(
+                    minutes=self.scrape_interval_minutes
+                )
             time.sleep(1)
 
     def main(self):
@@ -113,22 +124,22 @@ class TrendingScraper:
         total_time = time.time() - start_time
         logger.info(f"Done Scraping, took {total_time:.4f}s")
 
-parser = argparse.ArgumentParser(
-    description=""
-)
+
+parser = argparse.ArgumentParser(description="")
 
 parser.add_argument(
-    "-o", "--output",
+    "-o",
+    "--output",
     type=str,
     required=True,
-    help="Path to the output directory (no default)"
+    help="Path to the output directory (no default)",
 )
 
 args = parser.parse_args()
 try:
     # Configure logging
     configure_logging(log_dir=args.output, logfile="scraper.log")
-    
+
     client = JupiterClient(os.getenv("MAIN_WALLET"), os.getenv("SOL_NODE"))
     TrendingScraper(args.output, client).main()
 except Exception as e:
