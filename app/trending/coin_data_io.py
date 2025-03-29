@@ -1,4 +1,5 @@
 import ast
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 from dateutil.parser import isoparse
@@ -7,6 +8,9 @@ import os
 from typing import List, Optional, Any, Dict
 
 from trending.coingecko_client import CoinGeckoClient
+
+# Get module logger
+logger = logging.getLogger(__name__)
 
 COIN_DATA_DIR = ".coin_data"
 
@@ -112,5 +116,5 @@ class CoinDataIo:
                 json_data = json.load(file)
             return CoinData.from_coingecko_json(json_data)
         except Exception as e:
-            print(f"Failed to get coin data for {coin}")
+            logger.error(f"Failed to get coin data for {coin}", exc_info=True)
             raise

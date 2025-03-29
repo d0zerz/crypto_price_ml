@@ -1,7 +1,11 @@
 import ast
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import List
+
+# Get module logger
+logger = logging.getLogger(__name__)
 
 @dataclass
 class TrendingData:
@@ -44,5 +48,5 @@ class TrendingDataIo:
             else:
                 return []
         except Exception as e:
-            print(f"\nfailed to get last trending {e}")
+            logger.error("\nfailed to get last trending {e}", exc_info=True)
             return []

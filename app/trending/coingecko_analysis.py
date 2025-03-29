@@ -1,5 +1,6 @@
 from dataclasses import fields
 import os
+import logging
 from typing import List
 from trending.dex_token import DexDataIo
 from prices.price_data import PriceDataNotFoundException
@@ -12,6 +13,9 @@ import pandas as pd
 
 SKIP_FIRST_COINS = 10
 COIN_DATA_FILE = "coin_data_dump.xlsx"
+
+# Get module logger
+logger = logging.getLogger(__name__)
 
 class CoingeckoAnalysis:
 
@@ -43,20 +47,20 @@ class CoingeckoAnalysis:
             coinDataFrame = self.getTotals(trendings)
             coinDataFrame.to_excel(COIN_DATA_FILE, index=False)
 
-        print(f"total coins: {len(coinDataFrame)}")
-        print(coinDataFrame.columns)
-        print(f"1hr price diff: {coinDataFrame['1hr_after'].mean()}")
-        print(f"6hr price diff: {coinDataFrame['6hr_after'].mean()}")
-        print(f"12hr price diff: {coinDataFrame['12hr_after'].mean()}")
-        print(f"24hr price diff: {coinDataFrame['24hr_after'].mean()}")
-        print(f"48hr price diff: {coinDataFrame['48hr_after'].mean()}")
+        logger.info(f"Total coins: {len(coinDataFrame)}")
+        logger.info(f"DataFrame columns: {coinDataFrame.columns}")
+        logger.info(f"1hr price diff: {coinDataFrame['1hr_after'].mean()}")
+        logger.info(f"6hr price diff: {coinDataFrame['6hr_after'].mean()}")
+        logger.info(f"12hr price diff: {coinDataFrame['12hr_after'].mean()}")
+        logger.info(f"24hr price diff: {coinDataFrame['24hr_after'].mean()}")
+        logger.info(f"48hr price diff: {coinDataFrame['48hr_after'].mean()}")
 
     def printNew(self, trendings: List[TrendingData]):
         coinsProcessed = []
         for trending in trendings:
             for coin in trending.new_trendings:
                 if coin not in coinsProcessed:
-                    print(f"{trending.timestamp} new coin {coin}")
+                    logger.info(f"{trending.timestamp} new coin {coin}")
                     coinsProcessed.append(coin)
 
     def getTotals(self, trendings: List[TrendingData]) -> pd.DataFrame:
@@ -73,16 +77,16 @@ class CoingeckoAnalysis:
                     skipped += 1
                     coinsProcessed.append(coin)
                     continue
-                print(f"{trending.timestamp}: processing {coin}")
+                logger.info(f"{trending.timestamp}: processing {coin}")
                 coinData = self.processCoin(trending, coin)
                 coinsProcessed.append(coin)
                 if coinData:
                     if len(coinData) == len(self.dataframe_cols):
                         allCoinData.append(coinData)
                     else:
-                        print("COL MISMATCH WETF")
+                        logger.error("Column mismatch in coin data")
                 else:
-                    print(f"No data for {coin}")
+                    logger.warning(f"No data for {coin}")
         return self.createNewDataFrame(allCoinData)
 
     def shouldSkipTrending(self, trending: TrendingData):
@@ -97,7 +101,7 @@ class CoingeckoAnalysis:
     def processCoin(self, trending: TrendingData, coin: str) -> List:
         data = self.coin_data_io.getCoinDataFromFile(coin)
         if abs(trending.timestamp - data.data_snapshot_time) > timedelta(minutes=15):
-            print(f"Coin data too far off trending for {coin}")
+            logger.warning(f"Coin data too far off trending for {coin}")
             return None
         coin_data = list(data.__dict__.values())
         while True:
@@ -107,15 +111,16 @@ class CoingeckoAnalysis:
                 pct_diffs = self.find_price_diffs(coin, trending)
                 return coin_data + pct_diffs
             except KeyError as e:
-                print(f"no coin in map found for {coin}")
+                logger.error(f"No coin in map found for {coin}", exc_info=True)
                 return None
             except PriceDataNotFoundException as e:
-                print(f"no close enough price data found for {coin}")
+                logger.error(f"No close enough price data found for {coin}", exc_info=True)
                 return None
             except RateLimitException as e:
                 if attempts > 10:
+                    logger.error(f"Giving up on {coin} after 10 attempts", exc_info=True)
                     raise Exception(f"giving up on {coin} after 10 attempts")
-                print(f"Rate Limited:  retrying on {coin} in 60s")
+                logger.warning(f"Rate Limited: retrying on {coin} in 60s")
                 time.sleep(60)
 
     # Find price diff represented by a percentage from the start date
@@ -123,7 +128,7 @@ class CoingeckoAnalysis:
         currTs = trending.timestamp
         prices = self.client.get_historical_chart(coin, 90)
         if not prices:
-            print(f"Couldn't get prices for {coin}")
+            logger.warning(f"Couldn't get prices for {coin}")
             return None
         startPrice = prices.getClosestPrice(currTs)
         if startPrice == 0:
@@ -136,6 +141,6 @@ class CoingeckoAnalysis:
             delta = price - startPrice
             pctIncrease = round((delta / startPrice) * 100, 3)
             pctDiffs.append(pctIncrease)
-            # print(f"{coin}: from {currTs} to {curTime}, price went from {startPrice} to {price} for a {pctIncrease}% increase")
+            # logger.debug(f"{coin}: from {currTs} to {curTime}, price went from {startPrice} to {price} for a {pctIncrease}% increase")
 
         return pctDiffs

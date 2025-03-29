@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 import os
+import logging
 from typing import Dict, Optional
 import base58
 import base64
@@ -18,6 +19,9 @@ from solana.rpc.async_api import AsyncClient
 from solana.rpc.commitment import Processed
 
 from jupiter_python_sdk.jupiter import Jupiter, Jupiter_DCA
+
+# Get module logger
+logger = logging.getLogger(__name__)
 
 SOL_BASE = "So11111111111111111111111111111111111111112"
 
@@ -113,7 +117,7 @@ class JupiterClient:
         opts = TxOpts(skip_preflight=False, preflight_commitment=Processed)
         result = await self.async_client.send_raw_transaction(txn=bytes(signed_txn), opts=opts)
         transaction_id = json.loads(result.to_json())['result']
-        print(f"Transaction sent: https://explorer.solana.com/tx/{transaction_id}")
+        logger.info(f"Transaction sent: https://explorer.solana.com/tx/{transaction_id}")
         return transaction_id
 
 # Example usage (async context needed):
@@ -122,11 +126,11 @@ async def main():
     shitcoin = "9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump"
     amount = 1232661704592
     quote = await trader.get_quote(shitcoin, SOL_BASE, 614000000)
-    print(f"shit to sol ex: {quote.exchange_rate()}")
+    logger.debug(f"shit to sol exchange rate: {quote.exchange_rate()}")
 
     quote = await trader.get_quote(SOL_BASE, shitcoin, 1227000000)
-    print(f"shit to sol ex: {quote.exchange_rate()}")
+    logger.debug(f"sol to shit exchange rate: {quote.exchange_rate()}")
 
    # tx = await trader.get_swap(shitcoin,SOL_BASE, amount)
-    #print(tx)
+    #logger.debug(f"Transaction: {tx}")
 #asyncio.run(main())

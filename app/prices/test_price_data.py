@@ -5,6 +5,11 @@ from pandas.testing import assert_series_equal
 
 from prices.price_data import PriceData
 
+# Get module logger
+logger = logging.getLogger(__name__)
+
+import logging
+
 class TestPriceData(unittest.TestCase):
     def setUp(self):
         """Set up a sample DataFrame for testing."""

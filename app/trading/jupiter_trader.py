@@ -4,6 +4,7 @@ import traceback
 from typing import List
 import pandas as pd
 import threading
+import logging
 import asyncio
 import concurrent.futures
 from trading.jupiter_client import JupiterClient, Quote
@@ -11,6 +12,11 @@ from datetime import datetime, timedelta
 from openpyxl import load_workbook
 from ml.dex_model import DexModel, MARKET_CAP_MIN
 from trending.dex_token import DexToken 
+
+# Get module logger
+logger = logging.getLogger(__name__)
+
+import logging
 
 SOL_BASE = "So11111111111111111111111111111111111111112"
 BUY_SLIPPAGE = 200
@@ -32,10 +38,10 @@ class DexTrader:
 
     def _get_prediction(self, token: DexToken) -> bool:
         if token.market_cap < 1000000: # MARKET_CAP_MIN
-            print (f"Market cap too low for {token}")
+            logger.info(f"Market cap too low for {token}")
             return False
         if token.liquidity_usd <=0 or token.volume_h24 <=0:
-            print (f"Invalid data for {token}")
+            logger.info(f"Invalid data for {token}")
             return False
 
         buysell_m5_ratio = token.buys_m5 / 1 if token.sells_m5 == 0 else token.sells_m5
@@ -62,9 +68,9 @@ class DexTrader:
 
         buy_quote: Quote = await self.jup_client.get_buy_shitcoin_quote(token_address, self.buy_amount)
         shitcoins_bought_quoted = buy_quote.out_amount
-        print(f"Buying {shitcoins_bought_quoted} {token_address} at {buy_quote.exchange_rate()}")
+        logger.info(f"Buying {shitcoins_bought_quoted} {token_address} at {buy_quote.exchange_rate()}")
         start_time = datetime.now()
-        print(f"Sampling sell quotes at {start_time} for {token_address}")
+        logger.info(f"Sampling sell quotes at {start_time} for {token_address}")
         
         next_sample_time = start_time
 
@@ -97,7 +103,7 @@ class DexTrader:
                 samples[column_name] = exchange_rate
                 next_sample_time = next_sample_time + timedelta(seconds=samplerate_seconds)
                 if (last_exchange_rate > 0 and exchange_rate > last_exchange_rate):
-                    print(f"selling {token_address} at {exchange_rate}")
+                    logger.info(f"selling {token_address} at {exchange_rate}")
                     sampling_data["sell_time"] = datetime.now()
                     sold = True
 
@@ -117,14 +123,14 @@ class DexTrader:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
-            print(f"Started buy loop for {token.token_address}")
+            logger.info(f"Started buy loop for {token.token_address}")
             results_df = loop.run_until_complete(self._run_buy_loop(token))
             if not results_df.empty:
                 with self.excel_lock:
                     self.append_to_excel(self.output_file, results_df, 'buys')
-                    print(f"Sampling completed on thread {threading.get_ident()}. Results saved to {self.output_file}")
+                    logger.info(f"Sampling completed on thread {threading.get_ident()}. Results saved to {self.output_file}")
         except Exception as e:
-            print(f"Error in sampling task thread {threading.get_ident()}: {str(e)}")
+            logger.error(f"Error in sampling task thread {threading.get_ident()}: {str(e)}", exc_info=True)
             traceback.print_exc()
         finally:
             loop.close()

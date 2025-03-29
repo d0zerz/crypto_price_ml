@@ -18,11 +18,16 @@ from spl.token.constants import ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID
 from spl.token.client import Token
 from spl.token.instructions import get_associated_token_address
 
+# Get module logger
+logger = logging.getLogger(__name__)
+
+import logging
+
 class SolanaClient:
     def __init__(self, rpc_url: str = "https://api.mainnet-beta.solana.com", keypair_b58: str = None):
         self.client = Client(rpc_url)
         self.keypair = Keypair.from_base58_string(keypair_b58)
-        print(f"Loaded Wallet: pub:[{self.keypair.pubkey()}]")
+        logger.info(f"Loaded Wallet: pub:[{self.keypair.pubkey()}]")
     
     def create_send_transaction(self, recipient: str, amount: int) -> Transaction:
         """Creates a transaction for transferring SOL."""
@@ -75,7 +80,7 @@ class SolanaClient:
             response = self.client.send_transaction(transaction.serialize(), opts=TxOpts(skip_preflight=True, skip_confirmation=True, preflight_commitment="processed"))
             return response.value
         except Exception as e:
-            print("failed to send transaction", e)
+            logger.error("failed to send transaction", exc_info=True)
             return None
         
     def wait_for_finalization(self, tx_sig: Signature, max_retries=30, sleep_time=2) -> Optional[TransactionStatus]:
@@ -94,7 +99,7 @@ class SolanaClient:
 def genWallet():
     new_wallet = Keypair()
     key_b58 = base58.b58encode(bytes(new_wallet)).decode("utf-8")
-    print(f"\nNew Wallet: pub:[{new_wallet.pubkey()}] b58:[{key_b58}] ")
+    logger.info(f"\nNew Wallet: pub:[{new_wallet.pubkey()}] b58:[{key_b58}] ")
 
 
 test_key = "5YVMBvakSYmSjWsPfTL8HWb6VyMGfu7aYCcxCtD2cL224pj8SdzHGKSAie1SzoiRwrqfyzkiaRvNutpd3FtRUbhS"
@@ -104,19 +109,19 @@ client = SolanaClient(os.getenv("SOL_NODE"), os.getenv("MAIN_WALLET"))
 def sendTx():
     transaction = client.create_send_transaction("4KN4BfKFEmAxAxjFcTL86U76S23k7uq6EpNJM9oM3t7j", 1_000_000)
     signed_transaction = client.sign_transaction(transaction)
-    print("sending transaction")
+    logger.info("sending transaction")
     status = client.send_and_finalize(signed_transaction)
     if status:
-        print(f"transaction finalized {status}")
+        logger.info(f"transaction finalized {status}")
     else:
-        print(f"tx failed {transaction}")
+        logger.error(f"tx failed {transaction}", exc_info=True)
 
 genWallet()
 
 amount = client.get_token_balance("1au1hAEZpM3G4MvkzBBr9xib1GiGzEMAqnsjuCzQSja")
 token = client.get_token("9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump")
 
-print(f"{amount} of shitcoint")
+logger.info(f"{amount} of shitcoint")
 #print(f"{token.get_decimals} of shitcoint")
 
 #sender = new_wallet["public_key"]

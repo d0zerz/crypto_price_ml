@@ -6,6 +6,11 @@ import pandas as pd
 import requests
 import json
 
+# Get module logger
+logger = logging.getLogger(__name__)
+
+import logging
+
 EVENTS_URL = "https://api.augmento.ai/v0.1/events/aggregated"
 
 #positive

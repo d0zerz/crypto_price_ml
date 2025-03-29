@@ -3,6 +3,11 @@ from datetime import datetime
 import yfinance as yf
 import pandas as pd
 
+# Get module logger
+logger = logging.getLogger(__name__)
+
+import logging
+
 PICKLE_FILE_LOCATION="prices/yfinance_price_history.pickle"
 
 class YfinanceClient:

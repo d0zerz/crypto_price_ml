@@ -3,6 +3,11 @@ import pytest
 from sentiment import Sentiment
 from augmento_client import AugmentoClient
 
+# Get module logger
+logger = logging.getLogger(__name__)
+
+import logging
+
 TEST_DATA = [
    {
       "counts":[2,9,34,37,21,11,15,1,12,11,9,11,242,140,6,8,2,2,12,213,0,6,627,56,11,1,45,38,73,38,15,0,3,3,56,2,29,6,181,8,2,6,21,13,2,3,9,3,66,91,22,2,0,0,0,24,44,16,16,3,206,2,40,290,55,100,14,41,4,14,0,4,266,3,7,307,6,151,3,107,18,7,1,95,11,0,1346,54,1,16,1,51,289],

@@ -6,6 +6,11 @@ from solana.keypair import Keypair
 from solana.publickey import PublicKey
 from solana.rpc.types import TxOpts
 
+# Get module logger
+logger = logging.getLogger(__name__)
+
+import logging
+
 # Constants and configurations
 API_URLS = {
     "BASE_HOST": "https://api.raydium.io/v2",
@@ -35,7 +40,7 @@ def api_swap():
     output_token_acc = next((a for a in token_accounts if str(a["mint"]) == output_mint), None)
 
     if not input_token_acc:
-        print("Do not have input token account")
+        logger.info("Do not have input token account")
         return
 
     # Get statistical transaction fee from API
@@ -65,13 +70,13 @@ def api_swap():
     all_tx_buf = [base64.b64decode(tx["transaction"]) for tx in swap_transactions["data"]]
     all_transactions = [Transaction.deserialize(tx_buf) for tx_buf in all_tx_buf]
 
-    print(f"Total {len(all_transactions)} transactions")
+    logger.info(f"Total {len(all_transactions)} transactions")
     
     for idx, tx in enumerate(all_transactions, start=1):
-        print(f"{idx} transaction sending...")
+        logger.info(f"{idx} transaction sending...")
         tx.sign(owner)
         tx_id = connection.send_transaction(tx, owner, opts=TxOpts(skip_preflight=True))
-        print(f"{idx} transaction confirmed, txId: {tx_id}")
+        logger.info(f"{idx} transaction confirmed, txId: {tx_id}")
 
 if __name__ == "__main__":
     api_swap()

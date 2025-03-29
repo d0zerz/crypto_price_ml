@@ -10,5 +10,5 @@ __pycache__/
 *.xlsx
 .*coin_data/
 data/*
-*trending*.log*
+*.log*
 app/prod.model

@@ -1,11 +1,13 @@
 import json
-import traceback
+import logging
 from typing import Optional
 import requests
 import pandas as pd
 from datetime import datetime, timezone
 
 from prices.price_data import PriceData
+
+logger = logging.getLogger(__name__)
 
 class RateLimitException(Exception):
     def __init__(self, message):
@@ -40,7 +42,7 @@ class CoinGeckoClient:
             else:
                 return response.json()
         except requests.exceptions.RequestException as e:
-            print(f"Error fetching data: {e}")
+            logger.error(f"Error fetching data: {e}", exc_info=True)
             # traceback.print_exc()
             return []
 

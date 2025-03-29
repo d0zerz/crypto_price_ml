@@ -2,6 +2,7 @@ import os
 import signal
 import time
 import traceback
+import logging
 from typing import List
 import pandas as pd
 import threading
@@ -11,6 +12,8 @@ from trading.jupiter_client import JupiterClient
 from datetime import datetime, timedelta
 from openpyxl import load_workbook
 
+# Get module logger
+logger = logging.getLogger(__name__)
 
 class JupiterQuoteScraper:
     """
@@ -39,7 +42,7 @@ class JupiterQuoteScraper:
         signal.signal(signal.SIGINT, self.handle_shutdown)
 
     def handle_shutdown(self, signum, frame):
-        print(f"Received signal {signum}. Starting graceful shutdown...")
+        logger.info(f"Received signal {signum}. Starting graceful shutdown...")
         self.shutdown_flag.set()
 
     def get_interval(self, elapsed_minutes):
@@ -63,7 +66,7 @@ class JupiterQuoteScraper:
         end_time = start_time + timedelta(minutes=self.duration_minutes)
         next_sample_time = start_time
 
-        print(f"Starting exchange rate sampling at {start_time} for tokens {tokens}, thread {threading.get_ident()} ending at {end_time}")
+        logger.info(f"Starting exchange rate sampling at {start_time} for tokens {tokens}, thread {threading.get_ident()} ending at {end_time}")
         
         while next_sample_time <= end_time:
             current_time = datetime.now()
@@ -79,7 +82,7 @@ class JupiterQuoteScraper:
                         quote = await self.jup_client.get_buy_shitcoin_quote(token, self.buy_amount)
                         rates[token] = quote.exchange_rate()
                     except Exception as e:
-                        print(f"quoteErr:{token} | {str(e)}")
+                        logger.info(f"quoteErr:{token} | {str(e)}")
                 
                 # Store the rates with elapsed minutes as key
                 all_rates[column_name] = rates
@@ -88,7 +91,7 @@ class JupiterQuoteScraper:
                 next_sample_time = next_sample_time + timedelta(minutes=current_interval)
                 
             if self.shutdown_flag.is_set():
-                print(f"Shutting down scraping thread {threading.get_ident()} at {column_name} {current_time}")
+                logger.info(f"Shutting down scraping thread {threading.get_ident()} at {column_name} {current_time}")
                 break
             await asyncio.sleep(1)
         
@@ -121,10 +124,10 @@ class JupiterQuoteScraper:
             results_df = loop.run_until_complete(self._sample_exchange_rates(tokens))
             with self.excel_lock:
                 self.append_to_excel(self.output_file, results_df, 'quotes')
-                print(f"Sampling completed on thread {threading.get_ident()}. Results saved to {self.output_file}")
+                logger.info(f"Sampling completed on thread {threading.get_ident()}. Results saved to {self.output_file}")
             
         except Exception as e:
-            print(f"Error in sampling task thread {threading.get_ident()}: {str(e)}")
+            logger.error(f"Error in sampling task thread {threading.get_ident()}: {str(e)}", exc_info=True)
             traceback.print_exc()
         finally:
             loop.close()

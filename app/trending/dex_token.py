@@ -1,10 +1,13 @@
-
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 import json
 import os
 import shutil
+import logging
 from typing import Any, Dict, List
+
+# Get module logger
+logger = logging.getLogger(__name__)
 
 FUTURE_TIMES = [
     {
@@ -115,7 +118,7 @@ class DexDataIo:
     def archive_token_files(self, token):
         directory = f"{self.base_path}/{DEX_COIN_DATA_DIR}"
         if not os.path.isdir(directory):
-            print(f"Error: Directory '{directory}' does not exist.")
+            logger.error(f"Error: {directory} is not a Directory ", exc_info=True)
             return
         
         # Create the archive directory if it doesn't exist
@@ -130,7 +133,7 @@ class DexDataIo:
                 try:
                     shutil.move(src_path, dest_path)
                 except Exception as e:
-                    print(f"Failed to archive {file}: {e}")
+                    logger.error(f"Failed to archive {file}: {e}", exc_info=True)
 
     def write_to_file(self, token: DexToken, suffix: str = None):
         file_path=self._get_token_file_path(token.token_address, suffix)
@@ -191,6 +194,6 @@ class DexDataIo:
                         coin_data = DexToken.from_json(data)
                         coin_data_list.append(coin_data)
                 except (json.JSONDecodeError, FileNotFoundError) as e:
-                    print(f"Error loading {filename}: {e}")
+                    logger.error(f"Error loading {filename}: {e}", exc_info=True)
 
         return coin_data_list

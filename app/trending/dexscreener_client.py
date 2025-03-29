@@ -2,9 +2,15 @@ from datetime import datetime, timezone
 import time
 from typing import List, Optional
 import requests
+import logging
 from dataclasses import asdict, dataclass
 
 from trending.dex_token import DexToken
+
+# Get module logger
+logger = logging.getLogger(__name__)
+
+import logging
 
 @dataclass
 class TokenProfile:
@@ -44,13 +50,13 @@ class DexScreenerClient:
             except requests.exceptions.HTTPError as e:
                 if e.response is not None and e.response.status_code == 429:  # Too Many Requests
                     wait_time = 60
-                    print(f"HTTP 429 received. Retrying in {wait_time} seconds...")
+                    logger.info(f"HTTP 429 received. Retrying in {wait_time} seconds...")
                     time.sleep(wait_time)
                     retries += 1
                 else:
                     raise  # Re-raise other HTTP errors
 
-        print("Max retries reached. Request failed.")
+        logger.error("Max retries reached. Request failed.", exc_info=True)
         return None
 
     def get_token_pair(self, chain_id: str, token_address: str) -> Optional[DexToken]:
@@ -89,7 +95,9 @@ class DexScreenerClient:
             aggregated_data["liquidity_usd"] += pair.get("liquidity", {}).get("usd", 0)
             aggregated_data["market_cap"] += pair.get("marketCap", 0)
         
-        return DexToken(**aggregated_data)
+        token_pair = DexToken(**aggregated_data)
+        logger.info(f"{token_pair}")
+        return token_pair
 
 # Example usage
 if __name__ == "__main__":
@@ -97,4 +105,4 @@ if __name__ == "__main__":
     profiles = client.get_latest_solana_token_profiles()
     for profile in profiles:
         token_pair = client.get_token_pair(profile.chain_id, profile.token_address)
-        print(token_pair)
+        logger.info(token_pair)

@@ -1,3 +1,4 @@
+import logging
 import pickle
 from typing import Any
 import pandas as pd
@@ -13,6 +14,9 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, classification_report
+
+# Get module logger
+logger = logging.getLogger(__name__)
 
 MARKET_CAP_MIN = 5000000
 PROD_MODEL_FILE = "app/prod.model"
@@ -58,7 +62,7 @@ class DexModel:
 
     @staticmethod
     def save_model(model: Any, filename: str):
-        print(f"saving model {type(model).__name__} to {filename}")
+        logger.info(f"saving model {type(model).__name__} to {filename}")
         with open(filename, 'wb') as file:
             pickle.dump(model, file)
 
@@ -68,7 +72,7 @@ class DexModel:
             with open(filename, 'rb') as file:
                 return pickle.load(file)
         except Exception as e:
-            print(f"Error opening {PROD_MODEL_FILE}", e)
+            logger.error(f"Error opening {PROD_MODEL_FILE}", exc_info=True)
             return None
 
     def predict_target(self, data: dict) -> int:
@@ -139,8 +143,8 @@ class DexModel:
 
             # Evaluate the model
             accuracy = accuracy_score(y_test, y_pred)
-            print(f"{type(model).__name__} Accuracy: {accuracy}")
-            print(classification_report(y_test, y_pred))
+            logger.info(f"{type(model).__name__} Accuracy: {accuracy}")
+            logger.info(classification_report(y_test, y_pred))
         
         self.save_model(prod_model, PROD_MODEL_FILE)
 
@@ -159,4 +163,4 @@ def test_predict():
         'price_change_h24': price_change_h24
     }
     result = model.predict_target(data)
-    print(result)
+    logger.info(result)

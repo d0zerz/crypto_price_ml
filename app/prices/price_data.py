@@ -1,6 +1,9 @@
 from datetime import datetime, timedelta
 import pandas as pd
+import logging
 
+# Get module logger
+logger = logging.getLogger(__name__)
 
 class PriceDataNotFoundException(Exception):
     def __init__(self, message):
