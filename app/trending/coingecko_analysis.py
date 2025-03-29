@@ -1,15 +1,16 @@
-from dataclasses import fields
-import os
 import logging
-from typing import List
-from trending.dex_token import DexDataIo
-from prices.price_data import PriceDataNotFoundException
-from trending.coingecko_client import CoinGeckoClient, RateLimitException
-from trending.trending_data_io import TrendingData, TrendingDataIo
-from trending.coin_data_io import CoinData, CoinDataIo
-from datetime import datetime, timedelta, timezone
+import os
 import time
+from dataclasses import fields
+from datetime import datetime, timedelta, timezone
+from typing import List
+
 import pandas as pd
+from prices.price_data import PriceDataNotFoundException
+from trending.coin_data_io import CoinData, CoinDataIo
+from trending.coingecko_client import CoinGeckoClient, RateLimitException
+from trending.dex_token import DexDataIo
+from trending.trending_data_io import TrendingData, TrendingDataIo
 
 SKIP_FIRST_COINS = 10
 COIN_DATA_FILE = "coin_data_dump.xlsx"

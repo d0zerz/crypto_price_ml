@@ -1,7 +1,8 @@
 
 from datetime import datetime
-import yfinance as yf
+
 import pandas as pd
+import yfinance as yf
 
 # Get module logger
 logger = logging.getLogger(__name__)

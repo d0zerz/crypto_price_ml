@@ -1,7 +1,8 @@
 from datetime import datetime
+
 import pytest
 from sentiment import Sentiment
-from augmento_client import AugmentoClient
+from sentiment.augmento_client import AugmentoClient
 
 # Get module logger
 logger = logging.getLogger(__name__)

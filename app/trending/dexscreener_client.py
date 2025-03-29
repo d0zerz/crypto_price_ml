@@ -1,16 +1,17 @@
-from datetime import datetime, timezone
-import time
-from typing import List, Optional
-import requests
 import logging
+import time
 from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
+from typing import List, Optional
 
+import requests
 from trending.dex_token import DexToken
 
 # Get module logger
 logger = logging.getLogger(__name__)
 
 import logging
+
 
 @dataclass
 class TokenProfile:

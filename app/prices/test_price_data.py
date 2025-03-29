@@ -1,14 +1,15 @@
 import unittest
-import pandas as pd
 from datetime import datetime
-from pandas.testing import assert_series_equal
 
+import pandas as pd
+from pandas.testing import assert_series_equal
 from prices.price_data import PriceData
 
 # Get module logger
 logger = logging.getLogger(__name__)
 
 import logging
+
 
 class TestPriceData(unittest.TestCase):
     def setUp(self):

@@ -1,13 +1,14 @@
-from dataclasses import asdict, fields
-import os
 import logging
+import os
+import time
+from dataclasses import asdict, fields
+from datetime import datetime, timedelta, timezone
 from typing import List
+
+import pandas as pd
+from ml.dex_model import DexModel
 from trending.dex_token import DexDataIo, DexToken
 from trending.jupter_quote_parser import JupiterQuoteParser
-from ml.dex_model import DexModel
-from datetime import datetime, timedelta, timezone
-import time
-import pandas as pd
 
 # Get module logger
 logger = logging.getLogger(__name__)

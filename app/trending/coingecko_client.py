@@ -1,10 +1,10 @@
 import json
 import logging
-from typing import Optional
-import requests
-import pandas as pd
 from datetime import datetime, timezone
+from typing import Optional
 
+import pandas as pd
+import requests
 from prices.price_data import PriceData
 
 logger = logging.getLogger(__name__)

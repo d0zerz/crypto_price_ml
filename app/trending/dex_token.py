@@ -1,10 +1,10 @@
-from dataclasses import asdict, dataclass
-from datetime import datetime, timedelta, timezone
 import json
+import logging
 import os
 import shutil
-import logging
-from typing import Any, Dict, List
+from dataclasses import asdict, dataclass
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional
 
 # Get module logger
 logger = logging.getLogger(__name__)
@@ -135,7 +135,7 @@ class DexDataIo:
                 except Exception as e:
                     logger.error(f"Failed to archive {file}: {e}", exc_info=True)
 
-    def write_to_file(self, token: DexToken, suffix: str = None):
+    def write_to_file(self, token: DexToken, suffix: Optional[str] = None):
         file_path=self._get_token_file_path(token.token_address, suffix)
         if os.path.exists(self._get_token_file_path(file_path)):
             return
@@ -176,7 +176,7 @@ class DexDataIo:
         return self.dir_cache
     
 
-    def _load_dex_coin_data(self, starts_with: str, time_mod: str = None) -> List[DexToken]:
+    def _load_dex_coin_data(self, starts_with: str, time_mod: Optional[str] = None) -> List[DexToken]:
         coin_data_list = []
         directory = os.path.join(self.base_path, DEX_COIN_DATA_DIR)
 

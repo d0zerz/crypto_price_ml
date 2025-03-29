@@ -1,12 +1,12 @@
-from dataclasses import asdict, fields
-import os
 import logging
-from typing import List
-from trending.dex_token import DexDataIo
-from trending.dex_token import DexToken, FUTURE_TIMES
-from datetime import datetime, timedelta, timezone
+import os
 import time
+from dataclasses import asdict, fields
+from datetime import datetime, timedelta, timezone
+from typing import List
+
 import pandas as pd
+from trending.dex_token import FUTURE_TIMES, DexDataIo, DexToken
 
 # Get module logger
 logger = logging.getLogger(__name__)

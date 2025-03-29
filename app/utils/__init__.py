@@ -1,6 +1,5 @@
 import logging
 
-
 # Get module logger
 logger = logging.getLogger(__name__)
 

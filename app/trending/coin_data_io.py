@@ -1,12 +1,12 @@
 import ast
+import json
 import logging
+import os
 from dataclasses import dataclass
 from datetime import datetime
-from dateutil.parser import isoparse
-import json
-import os
-from typing import List, Optional, Any, Dict
+from typing import Any, Dict, List, Optional
 
+from dateutil.parser import isoparse
 from trending.coingecko_client import CoinGeckoClient
 
 # Get module logger

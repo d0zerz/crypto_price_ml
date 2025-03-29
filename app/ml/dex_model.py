@@ -1,19 +1,17 @@
 import logging
 import pickle
 from typing import Any
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 import xgboost as xgb
-from imblearn.ensemble import EasyEnsembleClassifier
-from imblearn.ensemble import BalancedRandomForestClassifier
-
-
-from sklearn.model_selection import train_test_split
-from sklearn.svm import SVC
-from sklearn.preprocessing import StandardScaler
+from imblearn.ensemble import BalancedRandomForestClassifier, EasyEnsembleClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, classification_report
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVC
 
 # Get module logger
 logger = logging.getLogger(__name__)

@@ -2,6 +2,7 @@ import logging
 import os
 from logging.handlers import RotatingFileHandler
 
+
 def configure_logging(log_dir=None, log_level=logging.INFO, logfile=None):
     """
     Configure logging for the application.

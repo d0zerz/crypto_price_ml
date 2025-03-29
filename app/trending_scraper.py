@@ -1,20 +1,20 @@
+import argparse
 import asyncio
-import os
-import traceback
 import logging
+import os
+import time
+import traceback
+from datetime import datetime, timedelta, timezone
 from typing import List
 
 from trading.jupiter_client import JupiterClient
-from trending.coingecko_client import CoinGeckoClient
-from trending.dexscreener_client import DexScreenerClient
-from trending.coin_data_io import CoinDataIo
-from trending.dex_token import DexDataIo, FUTURE_TIMES, DexToken
-from trending.trending_data_io import TrendingDataIo
-from trending.jupiter_quote_scraper import JupiterQuoteScraper
 from trading.jupiter_trader import DexTrader
-from datetime import datetime, timedelta, timezone
-import time
-import argparse
+from trending.coin_data_io import CoinDataIo
+from trending.coingecko_client import CoinGeckoClient
+from trending.dex_token import FUTURE_TIMES, DexDataIo, DexToken
+from trending.dexscreener_client import DexScreenerClient
+from trending.jupiter_quote_scraper import JupiterQuoteScraper
+from trending.trending_data_io import TrendingDataIo
 from utils.logging_config import configure_logging
 
 # Get module logger

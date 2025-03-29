@@ -1,10 +1,10 @@
+import json
 from datetime import datetime
-from dateutil.relativedelta import relativedelta
 from typing import List
 
 import pandas as pd
 import requests
-import json
+from dateutil.relativedelta import relativedelta
 
 # Get module logger
 logger = logging.getLogger(__name__)

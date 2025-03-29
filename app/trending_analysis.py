@@ -1,14 +1,13 @@
 import argparse
 import logging
-from dataclasses import fields
-from ml.dex_model import DexModel
-import traceback
-from trending.coingecko_analysis import CoingeckoAnalysis
-from trending.dex_analysis import DexAnalysis
 import os
-from utils.logging_config import configure_logging
+from dataclasses import fields
 
+from ml.dex_model import DexModel
+from trending.coingecko_analysis import CoingeckoAnalysis
 from trending.coingecko_client import CoinGeckoClient
+from trending.dex_analysis import DexAnalysis
+from utils.logging_config import configure_logging
 
 # Get module logger
 logger = logging.getLogger(__name__)
