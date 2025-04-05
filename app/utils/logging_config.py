@@ -1,6 +1,7 @@
 import logging
 import os
 from logging.handlers import RotatingFileHandler
+import sys
 
 
 def configure_logging(log_dir=None, log_level=logging.INFO, logfile=None):
@@ -15,6 +16,8 @@ def configure_logging(log_dir=None, log_level=logging.INFO, logfile=None):
     formatter = logging.Formatter(
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
+    # Ensure stdout uses UTF-8 encoding
+    sys.stdout.reconfigure(encoding='utf-8')
 
     # Configure root logger
     root_logger = logging.getLogger()
@@ -36,6 +39,7 @@ def configure_logging(log_dir=None, log_level=logging.INFO, logfile=None):
             os.path.join(log_dir, logfile),
             maxBytes=10 * 1024 * 1024,  # 10 MB
             backupCount=5,
+            encoding="utf-8"
         )
         file_handler.setFormatter(formatter)
         root_logger.addHandler(file_handler)

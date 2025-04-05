@@ -13,7 +13,7 @@ from trending.jupter_quote_parser import JupiterQuoteParser
 # Get module logger
 logger = logging.getLogger(__name__)
 
-COIN_DATA_FILE = "dex_coin_data_dump.xlsx"
+COIN_DATA_FILE = "dex_jup_coin_data_dump.xlsx"
 FUTURE_COLS = [""]
 
 
@@ -26,23 +26,30 @@ class DexJupiterQuoteAnalysis:
 
     def main(self):
         coinDataFrame = None
+        read_enabled = True
+        if os.path.exists(COIN_DATA_FILE) and read_enabled:
+            coinDataFrame = pd.read_excel(io=COIN_DATA_FILE)
+        else:
+            coinDataFrame = self.processFiles()
+            coinDataFrame["timestamp"] = coinDataFrame["timestamp"].dt.tz_localize(None)
+            coinDataFrame.to_excel(COIN_DATA_FILE, index=True, header=True)
 
         logger.info(f"total coins: {len(coinDataFrame)}")
         return coinDataFrame
 
     def getCoinFutures(self, coin: DexToken) -> dict:
         price_diffs = {}
-        for future_time in ["fake"]:  # FUTURE_TIMES:
-            future_label = future_time["label"]
-            future = self.dex_coin_data_io.load_future(
-                token_address=coin.token_address, future_name=future_label
+        future = self.quotes.get_row_by_token_address(coin.token_address)
+        if not future:
+            return price_diffs
+        start_price = future["M0000"]
+        for future_time in ["M0001","M0005","M0030","M0060",]:  # FUTURE_TIMES:
+            future_label = future_time
+            price_diff = round(
+                100 * (future[future_time] - start_price) / start_price,
+                3,
             )
-            if future and self.isFutureLegit(coin, future, future_time["interval"]):
-                price_diff = round(
-                    100 * (future.price_native - coin.price_native) / coin.price_native,
-                    3,
-                )
-                price_diffs[f"{future_label}_diff_pct"] = price_diff
+            price_diffs[f"{future_label}_diff_pct"] = price_diff
         return price_diffs
 
     def processFiles(self) -> pd.DataFrame:

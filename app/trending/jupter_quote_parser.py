@@ -1,12 +1,7 @@
 import os
 from typing import Any, Dict, Optional
 
-from pandas import pd
-
-# Get module logger
-logger = logging.getLogger(__name__)
-
-import logging
+import pandas as pd
 
 FILENAME = "jupiter_quotes.xlsx"
 
