@@ -43,7 +43,7 @@ class DexJupiterQuoteAnalysis:
         if not future:
             return price_diffs
         start_price = future["M0000"]
-        for future_time in ["M0001","M0005","M0030","M0060",]:  # FUTURE_TIMES:
+        for future_time in ["M0001","M0006","M0020","M0060",]:  # FUTURE_TIMES:
             future_label = future_time
             price_diff = round(
                 100 * (future[future_time] - start_price) / start_price,

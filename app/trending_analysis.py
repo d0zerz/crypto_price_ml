@@ -15,9 +15,9 @@ logger = logging.getLogger(__name__)
 
 def main(trending_dir: str):
     #dex_df = DexAnalysis(trending_dir).main()
-    #DexModel().train_crypto_models(dex_df)
     dex_jup_df = DexJupiterQuoteAnalysis(trending_dir).main()
-    print(dex_jup_df)
+    print(dex_jup_df.columns)
+    DexModel().train_crypto_models(dex_jup_df)
 
     # cg_key = os.getenv("COINGECKO_KEY")
     # client = CoinGeckoClient(api_key=cg_key)

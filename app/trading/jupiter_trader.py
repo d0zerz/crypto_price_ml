@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from typing import List
 
 import pandas as pd
-from ml.dex_model import MARKET_CAP_MIN, DexModel
+from ml.dex_model import MARKET_CAP_MIN, TARGETS, DexModel
 from openpyxl import load_workbook
 from trading.jupiter_client import JupiterClient, Quote
 from trending.dex_token import DexToken
@@ -44,8 +44,8 @@ class DexTrader:
         self.output_file = self.file_path = f"{output_directory}/jupiter_trades.xlsx"
         self.dex_model = DexModel()
 
-    def _get_prediction(self, token: DexToken) -> bool:
-        if token.market_cap < 1000000:  # MARKET_CAP_MIN
+    def _get_predictions(self, token: DexToken) -> dict:
+        if token.market_cap < MARKET_CAP_MIN:  # MARKET_CAP_MIN
             logger.info(f"Market cap too low for {token}")
             return False
         if token.liquidity_usd <= 0 or token.volume_h24 <= 0:
@@ -64,14 +64,30 @@ class DexTrader:
             "market_cap_volume_ratio": market_cap_volume_ratio,
             "price_change_h24": price_change_h24,
         }
-        return self.dex_model.predict_target(data)
+        return self.dex_model.get_predictions(data)
+
+    def get_loss_tolerance(self, predictions: dict):
+        tolerance = 0
+        if (predictions[TARGETS[3]]):
+            tolerance = tolerance + 10
+        if (predictions[TARGETS[2]]):
+            tolerance = tolerance + 5
+        if (predictions[TARGETS[1]]):
+            tolerance = tolerance + 3
+        if (predictions[TARGETS[0]]):
+            tolerance = tolerance + 1
+        return tolerance
 
     async def _run_buy_loop(self, token: DexToken):
         token_address = token.token_address
-        prediction = self._get_prediction(token=token)
-        # if not prediction:
-        #    print(f"Not buying {token_address}")
-        #    return None
+        predictions = self._get_predictions(token=token)
+        if not predictions:
+            print(f"Not buying {token_address}")
+            return None
+        loss_tolerance = self.get_loss_tolerance(predictions)
+        if loss_tolerance <= 0:
+            print(f"Not buying {token_address}")
+            return None
 
         buy_quote: Quote = await self.jup_client.get_buy_shitcoin_quote(
             token_address, self.buy_amount
@@ -91,7 +107,7 @@ class DexTrader:
             "sol_amount": self.buy_amount,
             "token_amount": shitcoins_bought_quoted,
             "real": False,
-            "would": prediction,
+            "would": predictions,
         }
 
         samples = {}
