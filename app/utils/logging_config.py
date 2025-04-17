@@ -46,5 +46,6 @@ def configure_logging(log_dir=None, log_level=logging.INFO, logfile=None):
 
     # Suppress overly verbose loggers
     logging.getLogger("urllib3").setLevel(logging.WARNING)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
 
     return root_logger

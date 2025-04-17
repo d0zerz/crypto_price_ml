@@ -67,7 +67,6 @@ class TrendingScraper:
                 raise e
 
     def processDexTrendings(self):
-        # trending_data_io = TrendingDataIo(self.output_directory, "dex_trending.log")
         unique_tokens = []
         for tokenProfile in self.dex_client.get_latest_solana_token_profiles():
             if not self.dex_coin_data_io.token_exists(tokenProfile.token_address):

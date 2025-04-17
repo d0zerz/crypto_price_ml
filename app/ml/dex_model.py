@@ -18,7 +18,7 @@ from sklearn.svm import SVC
 # Get module logger
 logger = logging.getLogger(__name__)
 
-MARKET_CAP_MIN = 200000
+MARKET_CAP_MIN = 100000
 
 FEATURES = [
     "buysell_m5_ratio",

@@ -1,5 +1,6 @@
 import asyncio
 import concurrent.futures
+import json
 import logging
 import os
 import threading
@@ -66,7 +67,8 @@ class DexTrader:
         }
         return self.dex_model.get_predictions(data)
 
-    def get_loss_tolerance(self, predictions: dict):
+    # loss that's tolerable in negative percent
+    def get_sell_loss_threshold(self, predictions: dict, minutes_elapsed, minutes_expected):
         tolerance = 0
         if (predictions[TARGETS[3]]):
             tolerance = tolerance + 10
@@ -76,17 +78,73 @@ class DexTrader:
             tolerance = tolerance + 3
         if (predictions[TARGETS[0]]):
             tolerance = tolerance + 1
-        return tolerance
+        if minutes_elapsed > minutes_expected:
+            tolerance = tolerance * .5
+        if minutes_elapsed > minutes_expected * 2:
+            tolerance = tolerance * .25
+        if minutes_elapsed > 60:
+            tolerance
+        return -1 * tolerance
 
-    async def _run_buy_loop(self, token: DexToken):
+    # loss that's tolerable in negative percent
+    def get_expected_minutes(self, predictions: dict):
+        tolerance = 0
+        if (predictions[TARGETS[3]]):
+            return 60
+        if (predictions[TARGETS[2]]):
+            return 20
+        if (predictions[TARGETS[1]]):
+            return 6
+        if (predictions[TARGETS[0]]):
+            return 1
+        return 0
+    
+    def should_sell(self, samples: List[float]) -> bool:
+        if not samples or len(samples) < 2:
+            return False
+            
+        # Get the all-time high (lowest number since it's inverted)
+        ath = min(samples)
+        current_price = samples[-1]
+        initial_price = samples[0]
+        
+        # Calculate percentage drop from ATH
+        pct_drop = ((current_price - ath) / ath) * 100
+        
+        # Strategy 1: Sell if dropped 20% from ATH
+        if pct_drop > 25:
+            logger.info(f"Selling due to 25% drop from ATH: {pct_drop:.2f}%")
+            return True
+
+        # Strategy 2: Check for plateau after large increase
+        if len(samples) >= 5:  # Need enough samples to detect plateau
+            recent_samples = samples[-5:]
+            increase_over_last_5 = ((recent_samples[-1] - recent_samples[0]) / recent_samples[0]) * -100
+            # If range is small compared to average (less than 2%), it's a plateau
+            if increase_over_last_5 < 2:
+                if len(samples) >= 15:
+                    increase = ((current_price - initial_price) / initial_price) * -100
+                    if increase > 20: 
+                        logger.info(f"Selling due to plateau after {increase:.2f}% increase")
+                        return True
+                        
+        # Strategy 3: Sell if overall increase is 200%
+        overall_increase = ((current_price - initial_price) / current_price) * -100
+        if overall_increase >= 100:
+            logger.info(f"Selling due to bigwin increase: {overall_increase:.2f}%")
+            return True
+                        
+        return False
+
+    async def _run_buy_loop(self, token: DexToken) -> pd.DataFrame:
         token_address = token.token_address
         predictions = self._get_predictions(token=token)
         if not predictions:
             print(f"Not buying {token_address}")
             return None
-        loss_tolerance = self.get_loss_tolerance(predictions)
-        if loss_tolerance <= 0:
-            print(f"Not buying {token_address}")
+        minutes_expected = self.get_expected_minutes(predictions)
+        if minutes_expected == 0:
+            print(f"Not buying {token_address} predictions {predictions}")
             return None
 
         buy_quote: Quote = await self.jup_client.get_buy_shitcoin_quote(
@@ -107,46 +165,35 @@ class DexTrader:
             "sol_amount": self.buy_amount,
             "token_amount": shitcoins_bought_quoted,
             "real": False,
-            "would": predictions,
+            "would": json.dumps(predictions),
         }
 
-        samples = {}
+        samplerate_seconds = 15
 
-        sample_counter = 0
-        samplerate_seconds = 30
         # exchange rate is in shit / sol
-        last_exchange_rate = -1
+        exchange_rates = []
         sold = False
+
         while not sold:
             current_time = datetime.now()
 
-            # If it's time to take a sample
             if current_time >= next_sample_time:
-                # Calculate elapsed time in minutes for column name
-                column_name = f"S{sample_counter:03}"
                 quote = await self.jup_client.get_sell_shitcoin_quote(
                     token_address, shitcoins_bought_quoted
                 )
                 exchange_rate = quote.exchange_rate()
+                exchange_rates.append(exchange_rate)
 
-                samples[column_name] = exchange_rate
-                next_sample_time = next_sample_time + timedelta(
-                    seconds=samplerate_seconds
-                )
-                if last_exchange_rate > 0 and exchange_rate > last_exchange_rate:
+                next_sample_time = next_sample_time + timedelta(seconds=samplerate_seconds)
+                if self.should_sell(exchange_rates):
                     logger.info(f"selling {token_address} at {exchange_rate}")
                     sampling_data["sell_time"] = datetime.now()
+                    sampling_data["sell_price"] = exchange_rate
                     sold = True
-
-                last_exchange_rate = exchange_rate
-                sample_counter = sample_counter + 1
 
             await asyncio.sleep(1)
 
-        while sample_counter < 99:
-            samples[f"S{sample_counter:03}"] = ""
-            sample_counter = sample_counter + 1
-        sampling_data.update(samples)
+        sampling_data["samples"] = str(exchange_rates)
         return pd.DataFrame(sampling_data, index=[0])
 
     def _run_async_sampling(self, token: DexToken):
@@ -154,9 +201,9 @@ class DexTrader:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
-            logger.info(f"Started buy loop for {token.token_address}")
+            logger.info(f"Starting buy loop for {token.token_address}")
             results_df = loop.run_until_complete(self._run_buy_loop(token))
-            if not results_df.empty:
+            if results_df is not None and not results_df.empty:
                 with self.excel_lock:
                     self.append_to_excel(self.output_file, results_df, "buys")
                     logger.info(
