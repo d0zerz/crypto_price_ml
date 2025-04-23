@@ -1,5 +1,7 @@
+import base64
 import os
 import time
+import logging
 from typing import Optional
 
 import base58
@@ -12,6 +14,7 @@ from solana.transaction import Transaction
 from solders.keypair import Keypair
 from solders.pubkey import Pubkey
 from solders.signature import Signature
+from solders.transaction import VersionedTransaction
 from solders.system_program import TransferParams, transfer
 from solders.transaction_status import TransactionConfirmationStatus, TransactionStatus
 from spl.token.async_client import AsyncToken
@@ -79,6 +82,16 @@ class SolanaClient:
         transaction.sign(self.keypair)
         return transaction
 
+    async def sign_versioned_transaction(self, transaction: VersionedTransaction) -> Optional[VersionedTransaction]:
+        try:
+            # Sign the transaction with our keypair
+            signed_tx = transaction.sign([self.keypair])
+            return signed_tx
+            
+        except Exception as e:
+            logger.error(f"Error signing transaction: {str(e)}", exc_info=True)
+            return None
+
     def send_and_finalize(
         self, transaction: Transaction
     ) -> Optional[TransactionStatus]:
@@ -101,7 +114,7 @@ class SolanaClient:
             return None
 
     def wait_for_finalization(
-        self, tx_sig: Signature, max_retries=30, sleep_time=2
+        self, tx_sig: Signature, max_retries=30, sleep_time=1
     ) -> Optional[TransactionStatus]:
         status = None
         for _ in range(max_retries):
@@ -114,6 +127,11 @@ class SolanaClient:
                 == TransactionConfirmationStatus.Finalized
             ):
                 return status  # Transaction is finalized
+            elif status and status.confirmation_status == TransactionConfirmationStatus.Finalized:
+                if status.err:
+                    logger.error(f"Transaction failed after finalization: {status.err}")
+                    return None
+
 
             time.sleep(sleep_time)  # Wait before retrying
 
@@ -123,12 +141,13 @@ class SolanaClient:
 def genWallet():
     new_wallet = Keypair()
     key_b58 = base58.b58encode(bytes(new_wallet)).decode("utf-8")
-    logger.info(f"\nNew Wallet: pub:[{new_wallet.pubkey()}] b58:[{key_b58}] ")
+    print(f"\nNew Wallet: pub:[{new_wallet.pubkey()}] b58:[{key_b58}] ")
+    return
 
 
 test_key = "5YVMBvakSYmSjWsPfTL8HWb6VyMGfu7aYCcxCtD2cL224pj8SdzHGKSAie1SzoiRwrqfyzkiaRvNutpd3FtRUbhS"
 test_key2 = "4ZizVbvXp7GiBmNFbDRsjKSAjYjhQTLqVrGJ3uorHzinq43CSrKv44GHQUcCN8Et3qkMWebMc6Rrf3cjs2A1cXmC"
-client = SolanaClient(os.getenv("SOL_NODE"), os.getenv("MAIN_WALLET"))
+client = None # SolanaClient(os.getenv("SOL_NODE"), os.getenv("MAIN_WALLET"))
 
 
 def sendTx():
@@ -144,12 +163,12 @@ def sendTx():
         logger.error(f"tx failed {transaction}", exc_info=True)
 
 
-genWallet()
+#genWallet()
 
-amount = client.get_token_balance("1au1hAEZpM3G4MvkzBBr9xib1GiGzEMAqnsjuCzQSja")
-token = client.get_token("9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump")
+#amount = client.get_token_balance("1au1hAEZpM3G4MvkzBBr9xib1GiGzEMAqnsjuCzQSja")
+#token = client.get_token("9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump")
 
-logger.info(f"{amount} of shitcoint")
+#logger.info(f"{amount} of shitcoint")
 # print(f"{token.get_decimals} of shitcoint")
 
 # sender = new_wallet["public_key"]

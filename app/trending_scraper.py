@@ -1,17 +1,17 @@
 import argparse
-import asyncio
 import logging
 import os
 import time
-import traceback
 from datetime import datetime, timedelta, timezone
 from typing import List
 
 from trading.jupiter_client import JupiterClient
 from trading.jupiter_trader import DexTrader
+from trading.solana_client import SolanaClient
+from trading.strategies.ath_strategy import ATHSellStrategy
 from trending.coin_data_io import CoinDataIo
 from trending.coingecko_client import CoinGeckoClient
-from trending.dex_token import FUTURE_TIMES, DexDataIo, DexToken
+from trending.dex_token import FUTURE_TIMES, DexDataIo
 from trending.dexscreener_client import DexScreenerClient
 from trending.jupiter_quote_scraper import JupiterQuoteScraper
 from trending.trending_data_io import TrendingDataIo
@@ -37,34 +37,21 @@ def safe_call(func, *args, **kwargs):
 
 class TrendingScraper:
 
-    def __init__(self, output_directory: str, jup_client: JupiterClient):
+    def __init__(self, output_directory: str, sol_client: SolanaClient):
         self.output_directory = output_directory
         self.coingecko = CoinGeckoClient(api_key=os.getenv("COINGECKO_KEY"))
+        jup_client = JupiterClient(sol_client.keypair)
         self.jup_client = jup_client
         self.coin_data_io = CoinDataIo(output_directory)
         self.dex_coin_data_io = DexDataIo(output_directory)
         self.dex_client = DexScreenerClient()
         self.jup_quote_scraper = JupiterQuoteScraper(jup_client, output_directory, 60)
-        self.dex_trader = DexTrader(jup_client, output_directory=output_directory)
+        self.dex_trader = DexTrader(output_directory=output_directory, buy_amount=int(1_000_000_000 / 100), sell_strategy=ATHSellStrategy())
         self.scraping = True
-        self.scrape_interval_minutes = 1
-
-    def processCoinGeckoTrendings(self):
-        tokens = self.coingecko.get_trending_tokens()
-        unique_tokens = sorted({entry[0] for entry in tokens})
-        trending_data_io = TrendingDataIo(self.output_directory)
-        new_entries = self.processTrending(
-            unique_tokens=unique_tokens, trending_data_io=trending_data_io
-        )
-        for coin in new_entries:
-            try:
-                if not self.coin_data_io.fileExists(coin):
-                    self.coin_data_io.write_to_file(
-                        coin, self.coingecko.get_coin_data(coin)
-                    )
-            except Exception as e:
-                logger.error(f"Failed to write coin {coin}", exc_info=True)
-                raise e
+        self.scrape_interval_seconds = 30
+        self.run_trading = os.getenv("REAL_TRADING", "False").lower() in ("true")
+        self.run_quote_scraping = os.getenv("QUOTE_SCRAPING", "False").lower() in ("true")
+        self.first_run = True
 
     def processDexTrendings(self):
         unique_tokens = []
@@ -75,32 +62,13 @@ class TrendingScraper:
                 )
                 self.dex_coin_data_io.write_to_file(dex_token)
                 unique_tokens.append(dex_token.token_address)
-                self.dex_trader.start_trading(dex_token)
+                if self.run_trading and not self.first_run:
+                    self.dex_trader.start_trading(dex_token)
 
-        if unique_tokens:
+        if unique_tokens and self.run_quote_scraping:
             self.jup_quote_scraper.start_sampling(unique_tokens)
         else:
             logger.info("Nothing new")
-
-    def archiveDexTokens(self):
-        last_future_label = FUTURE_TIMES[-1]["label"]
-        for coin in self.dex_coin_data_io.load_all_dex_coins(last_future_label):
-            self.dex_coin_data_io.archive_token_files(coin.token_address)
-
-    def processTrending(self, unique_tokens: List, trending_data_io: TrendingDataIo):
-        last_trending = trending_data_io.get_last_trending()
-        formatted_time = getUtcString()
-        new_entries = []
-        if last_trending:
-            new_entries = [item for item in unique_tokens if item not in last_trending]
-
-        if new_entries or not last_trending:
-            printstr = str((formatted_time, unique_tokens, new_entries))
-            trending_data_io.write_to_file(printstr)
-            logger.info(f"Wrote {printstr} to {self.output_directory}")
-        else:
-            logger.info("Nothing new")
-        return new_entries
 
     def run_scrape_loop(self):
         next_sample_time = datetime.now()
@@ -112,8 +80,9 @@ class TrendingScraper:
                 total_time = time.time() - int(current_time.timestamp())
                 logger.info(f"Done Scraping, took {total_time:.4f}s")
                 next_sample_time = next_sample_time + timedelta(
-                    minutes=self.scrape_interval_minutes
+                    seconds=self.scrape_interval_seconds
                 )
+                self.first_run = False
             time.sleep(1)
 
     def main(self):
@@ -138,8 +107,7 @@ args = parser.parse_args()
 try:
     # Configure logging
     configure_logging(log_dir=args.output, logfile="scraper.log")
-
-    client = JupiterClient(os.getenv("MAIN_WALLET"), os.getenv("SOL_NODE"))
-    TrendingScraper(args.output, client).main()
+    sol_client = SolanaClient(os.getenv("SOL_NODE"), os.getenv("MAIN_WALLET"))
+    TrendingScraper(args.output, sol_client).main()
 except Exception as e:
     logger.error(f"Error: {e}", exc_info=True)
